@@ -17,6 +17,11 @@ export const ProductCard = ({ p, i = 0 }) => (
         <p className="mt-0.5 truncate font-mono text-xs uppercase tracking-wide text-slate-500">{p.vendor_name}</p>
       </div>
     </div>
+    {p.preview_lines?.length > 0 && (
+      <div className="space-y-0.5 rounded-lg border border-[#272B29] bg-[#0E100F] px-3 py-2" data-testid={`product-card-preview-${p.id}`}>
+        {p.preview_lines.slice(0, 4).map((l, i) => <div key={i} className="truncate font-mono text-[11px] text-slate-400">{l}</div>)}
+      </div>
+    )}
     <div className="flex flex-wrap gap-2">
       <span className={`${tag} bg-[#22D3EE]/10 text-[#22D3EE]`}>{p.category}</span>
       {p.delivery_type === "content"

@@ -12,9 +12,11 @@ export function DeliveryView({ o }) {
     <div className="space-y-3">
       {o.license_key && (
         <div>
-          <div className="nk-label">License key</div>
+          <div className="nk-label">{o.license_key.includes("\n") ? "Your item" : "License key"}</div>
           <div className="flex items-center gap-2 rounded-lg border border-[#272B29] bg-[#0A0B0B] p-3">
-            <code data-testid={`vault-key-value-${o.id}`} className="min-w-0 flex-1 break-all text-sm text-[#4ADE80]">{show ? o.license_key : mask(o.license_key)}</code>
+            {o.license_key.includes("\n")
+              ? <pre data-testid={`vault-key-value-${o.id}`} className={`min-w-0 flex-1 whitespace-pre-wrap break-all font-mono text-xs text-[#4ADE80] transition-[filter] ${show ? "" : "select-none blur-sm"}`}>{o.license_key}</pre>
+              : <code data-testid={`vault-key-value-${o.id}`} className="min-w-0 flex-1 break-all text-sm text-[#4ADE80]">{show ? o.license_key : mask(o.license_key)}</code>}
             <button data-testid={`vault-toggle-${o.id}`} onClick={() => setShow(!show)} className="text-slate-400 hover:text-white">{show ? <EyeOff size={16} /> : <Eye size={16} />}</button>
             <button data-testid={`vault-copy-${o.id}`} onClick={() => copy(o.license_key)} className="text-slate-400 hover:text-white"><Copy size={16} /></button>
           </div>

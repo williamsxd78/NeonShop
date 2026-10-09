@@ -2,7 +2,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { api, errMsg, money, fmtDate, imgSrc } from "@/lib/api";
 import { useFetch } from "@/lib/useFetch";
-import { StatusBadge, Empty, FilterTabs, PromptDialog } from "@/components/Shared";
+import { StatusBadge, Empty, FilterTabs, PromptDialog, ConfirmDialog } from "@/components/Shared";
+import { Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const Preview = ({ p, onClose }) => (
@@ -27,6 +28,9 @@ export function AdminListings({ onChange }) {
   const [reject, setReject] = useState(null);
   const [price, setPrice] = useState(null);
   const [preview, setPreview] = useState(null);
+  const [batch, setBatch] = useState(null);
+  const [del, setDel] = useState(null);
+  const batchCount = (b) => list.filter((x) => x.batch_id === b && x.status !== "approved").length;
   const done = () => { reload(); onChange(); };
   const call = async (fn, msg) => { try { await fn(); toast.success(msg); done(); } catch (e) { toast.error(errMsg(e)); throw e; } };
 
@@ -40,7 +44,7 @@ export function AdminListings({ onChange }) {
             <tbody>{list.map((p) => (
               <tr key={p.id} data-testid={`admin-listing-row-${p.id}`}>
                 <td><div className="flex items-center gap-3">{p.image && <img src={imgSrc(p.image)} alt="" className="h-9 w-12 rounded object-cover" />}
-                  <div><div className="font-medium text-slate-100">{p.title}</div><div className="text-xs text-slate-500">{p.category} · {fmtDate(p.created_at)}</div></div></div></td>
+                  <div><div className="font-medium text-slate-100">{p.title}</div><div className="text-xs text-slate-500">{p.category} · {fmtDate(p.created_at)}{p.batch_id && <span className="font-mono"> · batch {p.batch_id.slice(0, 6)}</span>}</div></div></div></td>
                 <td className="text-xs">{p.vendor_name}</td>
                 <td className="font-mono">{money(p.vendor_price_cents ?? p.price_cents)}</td>
                 <td className="font-mono text-[#22C55E]">{money(p.price_cents)}</td>
@@ -48,9 +52,11 @@ export function AdminListings({ onChange }) {
                 <td><StatusBadge status={p.status} /></td>
                 <td className="whitespace-nowrap text-right">
                   <button data-testid={`listing-preview-${p.id}`} onClick={() => setPreview(p)} className="nk-btn-ghost nk-btn-sm mr-2">Preview</button>
+                  {p.batch_id && p.status !== "approved" && <button data-testid={`listing-approve-batch-${p.id}`} onClick={() => setBatch(p)} className="nk-btn-primary nk-btn-sm mr-2">Approve batch ({batchCount(p.batch_id)})</button>}
                   {p.status !== "approved" && <button data-testid={`listing-approve-${p.id}`} onClick={() => setApprove(p)} className="nk-btn-primary nk-btn-sm mr-2">Approve</button>}
                   {p.status !== "rejected" && <button data-testid={`listing-reject-${p.id}`} onClick={() => setReject(p)} className="nk-btn-danger nk-btn-sm mr-2">Reject</button>}
-                  <button data-testid={`listing-price-${p.id}`} onClick={() => setPrice(p)} className="nk-btn-ghost nk-btn-sm">Price</button>
+                  <button data-testid={`listing-price-${p.id}`} onClick={() => setPrice(p)} className="nk-btn-ghost nk-btn-sm mr-2">Price</button>
+                  <button data-testid={`listing-delete-${p.id}`} onClick={() => setDel(p)} className="nk-btn-danger nk-btn-sm"><Trash2 size={14} /></button>
                 </td>
               </tr>
             ))}</tbody>
@@ -58,6 +64,13 @@ export function AdminListings({ onChange }) {
         </div>
       )}
       <Preview p={preview} onClose={() => setPreview(null)} />
+      <PromptDialog testId="batch-approve" open={!!batch} onOpenChange={(o) => !o && setBatch(null)} title="Approve whole batch"
+        description="Publishes every pending item from this bulk import. Optionally set one live price for all." label="Live price for all (USD)" type="number"
+        defaultValue={batch ? (batch.price_cents / 100).toFixed(2) : ""} confirmText="Approve batch"
+        onSubmit={(v) => call(() => api.post(`/admin/batches/${batch.batch_id}/approve`, { price: parseFloat(v) }), "Batch is live")} />
+      <ConfirmDialog testId="listing-delete" open={!!del} onOpenChange={(o) => !o && setDel(null)} title={`Delete "${del?.title}"?`}
+        description="Permanently deletes this listing and its unsold stock. Past orders stay intact."
+        onConfirm={() => call(() => api.delete(`/admin/products/${del.id}`), "Listing deleted").catch(() => {})} />
       <PromptDialog testId="listing-approve" open={!!approve} onOpenChange={(o) => !o && setApprove(null)} title="Approve listing"
         description="Optionally override the vendor's price before going live." label="Live price (USD)" type="number"
         defaultValue={approve ? (approve.price_cents / 100).toFixed(2) : ""} confirmText="Approve & publish"

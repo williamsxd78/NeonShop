@@ -72,6 +72,22 @@ export function PromptDialog({ open, onOpenChange, title, description, label, ty
   );
 }
 
+export function ConfirmDialog({ open, onOpenChange, title, description, confirmText = "Delete", onConfirm, testId = "confirm" }) {
+  const [busy, setBusy] = useState(false);
+  const go = async () => { setBusy(true); try { await onConfirm(); onOpenChange(false); } finally { setBusy(false); } };
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="border-[#272B29] bg-[#121413] sm:max-w-md" data-testid={`${testId}-dialog`}>
+        <DialogHeader><DialogTitle className="font-display">{title}</DialogTitle>{description && <DialogDescription>{description}</DialogDescription>}</DialogHeader>
+        <div className="flex justify-end gap-2">
+          <button className="nk-btn-ghost nk-btn-sm" onClick={() => onOpenChange(false)} data-testid={`${testId}-cancel`}>Cancel</button>
+          <button disabled={busy} className="nk-btn-danger nk-btn-sm" onClick={go} data-testid={`${testId}-confirm`}>{confirmText}</button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export const FilterTabs = ({ value, onChange, options, testPrefix }) => (
   <div className="no-scrollbar mb-5 flex gap-2 overflow-x-auto">
     {options.map((o) => (

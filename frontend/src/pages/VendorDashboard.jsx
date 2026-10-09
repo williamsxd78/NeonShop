@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { Plus, Clock, XCircle } from "lucide-react";
-import { money, fmtDate } from "@/lib/api";
+import { Plus, Clock, XCircle, Layers, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import { api, errMsg, money, fmtDate } from "@/lib/api";
 import { useFetch } from "@/lib/useFetch";
 import { useAuth } from "@/context/AuthContext";
-import { PageHeader, Stat, StatusBadge, Empty, FilterTabs } from "@/components/Shared";
+import { PageHeader, Stat, StatusBadge, Empty, FilterTabs, ConfirmDialog } from "@/components/Shared";
+import { BulkImport } from "@/components/vendor/BulkImport";
 import { ProductForm } from "@/components/vendor/ProductForm";
 import { KeysDialog } from "@/components/vendor/KeysDialog";
 import { VendorWithdrawals } from "@/components/vendor/VendorWithdrawals";
@@ -11,9 +13,29 @@ import { VendorWithdrawals } from "@/components/vendor/VendorWithdrawals";
 function ProductsTab({ products, reload }) {
   const [edit, setEdit] = useState(undefined);
   const [keysFor, setKeysFor] = useState(null);
+  const [bulk, setBulk] = useState(false);
+  const [del, setDel] = useState(null);
+  const batches = Object.entries((products || []).reduce((a, p) => (p.batch_id ? { ...a, [p.batch_id]: (a[p.batch_id] || 0) + 1 } : a), {}));
+  const doDelete = async () => {
+    try {
+      const { data } = await api.delete(del.batch ? `/vendor/batches/${del.batch}` : `/vendor/products/${del.p.id}`);
+      toast.success(`Deleted ${data.deleted} product(s)`); reload();
+    } catch (e) { toast.error(errMsg(e)); }
+  };
   return (
     <>
-      <div className="mb-4 flex justify-end"><button data-testid="vendor-new-product-btn" onClick={() => setEdit(null)} className="nk-btn-primary"><Plus size={16} />New product</button></div>
+      <div className="mb-4 flex flex-wrap justify-end gap-2">
+        <button data-testid="vendor-bulk-import-btn" onClick={() => setBulk(true)} className="nk-btn-ghost"><Layers size={16} />Bulk import</button>
+        <button data-testid="vendor-new-product-btn" onClick={() => setEdit(null)} className="nk-btn-primary"><Plus size={16} />New product</button>
+      </div>
+      {batches.length > 0 && (
+        <div className="mb-4 flex flex-wrap gap-2" data-testid="vendor-batches">{batches.map(([b, n]) => (
+          <span key={b} className="flex items-center gap-2 rounded-lg border border-[#272B29] bg-[#121413] px-3 py-1.5 font-mono text-[11px] text-slate-400">
+            Batch {b.slice(0, 6)} · {n} items
+            <button data-testid={`vendor-delete-batch-${b}`} onClick={() => setDel({ batch: b, n })} className="text-[#FF2A5F] hover:text-[#FF6B8B]"><Trash2 size={13} /></button>
+          </span>
+        ))}</div>
+      )}
       {!products?.length ? <Empty testId="vendor-products-empty" text="No products yet. Create your first listing." /> : (
         <div className="nk-card overflow-x-auto">
           <table className="nk-table" data-testid="vendor-products-table">
@@ -28,7 +50,8 @@ function ProductsTab({ products, reload }) {
                 <td><StatusBadge status={p.status} /></td>
                 <td className="whitespace-nowrap text-right">
                   {p.delivery_type !== "content" && <button data-testid={`vendor-keys-btn-${p.id}`} onClick={() => setKeysFor(p)} className="nk-btn-ghost nk-btn-sm mr-2">Keys</button>}
-                  <button data-testid={`vendor-edit-btn-${p.id}`} onClick={() => setEdit(p)} className="nk-btn-ghost nk-btn-sm">Edit</button>
+                  <button data-testid={`vendor-edit-btn-${p.id}`} onClick={() => setEdit(p)} className="nk-btn-ghost nk-btn-sm mr-2">Edit</button>
+                  <button data-testid={`vendor-delete-btn-${p.id}`} onClick={() => setDel({ p })} className="nk-btn-danger nk-btn-sm" title="Delete"><Trash2 size={14} /></button>
                 </td>
               </tr>
             ))}</tbody>
@@ -36,6 +59,10 @@ function ProductsTab({ products, reload }) {
         </div>
       )}
       <ProductForm open={edit !== undefined} onOpenChange={(o) => !o && setEdit(undefined)} product={edit} onSaved={reload} />
+      <BulkImport open={bulk} onOpenChange={setBulk} onDone={reload} />
+      <ConfirmDialog testId="vendor-delete" open={!!del} onOpenChange={(o) => !o && setDel(null)} onConfirm={doDelete}
+        title={del?.batch ? `Delete batch (${del.n} items)?` : `Delete "${del?.p?.title}"?`}
+        description="This permanently deletes the listing(s) and all unsold stock. Past orders and buyers' vaults are not affected." />
       <KeysDialog product={keysFor} onOpenChange={(o) => !o && setKeysFor(null)} onChanged={reload} />
     </>
   );

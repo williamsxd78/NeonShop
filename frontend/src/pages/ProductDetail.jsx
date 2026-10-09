@@ -55,7 +55,7 @@ export default function ProductDetail() {
             <p className="mt-2 text-sm text-slate-500">Sold by <span className="text-slate-300">{p.vendor_name}</span> · {p.sales_count} sold</p>
             <div className="mt-6 flex items-end justify-between">
               <span data-testid="product-price" className="font-mono text-4xl font-semibold text-[#22C55E]">{money(p.price_cents)}</span>
-              <span data-testid="product-stock" className={`font-mono text-sm ${!soldOut ? "text-[#4ADE80]" : "text-[#FF2A5F]"}`}>{unlimited ? "Instant · unlimited" : p.stock_count > 0 ? `${p.stock_count} keys available` : "Out of stock"}</span>
+              <span data-testid="product-stock" className={`font-mono text-sm ${!soldOut ? "text-[#4ADE80]" : "text-[#FF2A5F]"}`}>{unlimited ? "Instant · unlimited" : p.stock_count > 0 ? `${p.stock_count} in stock` : "Out of stock"}</span>
             </div>
             {p.tags?.length > 0 && <div className="mt-4 flex flex-wrap gap-1.5" data-testid="product-tags">{p.tags.map((t) => <span key={t} className="rounded-md border border-[#272B29] px-2 py-0.5 font-mono text-[11px] uppercase text-slate-400">#{t}</span>)}</div>}
             {user ? (

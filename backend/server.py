@@ -1,4 +1,5 @@
 import os
+import re
 import uuid
 import secrets
 import asyncio
@@ -70,6 +71,30 @@ def product_fields(body: ProductIn) -> dict:
 
 
 PUBLIC_PRODUCT = {"_id": 0, "delivery_content": 0}
+
+
+class BulkIn(BaseModel):
+    text: str = Field(min_length=1, max_length=3_000_000)
+    separator: str = Field(default="dashes", max_length=60)
+    public_lines: List[int] = Field(default_factory=list, max_length=100)
+    title_line: Optional[int] = None
+    title_prefix: str = Field(default="Item", max_length=80)
+    deliver: Literal["all", "hidden"] = "all"
+    category: Literal["Software Licenses", "Templates", "Digital Assets", "Subscriptions", "Courses"]
+    price: float = Field(gt=0, le=100000)
+    image: Optional[str] = None
+    tags: List[str] = Field(default_factory=list, max_length=8)
+
+
+def split_blocks(text: str, sep: str) -> List[List[str]]:
+    if sep == "blank":
+        parts = re.split(r"\n\s*\n", text)
+    elif sep == "dashes":
+        parts = re.split(r"(?m)^\s*-{3,}\s*$", text)
+    else:
+        parts = re.split(r"(?m)^\s*" + re.escape(sep.strip()) + r"\s*$", text)
+    blocks = [[ln.strip() for ln in part.splitlines() if ln.strip()] for part in parts]
+    return [b for b in blocks if b]
 
 
 class KeysIn(BaseModel):
@@ -414,7 +439,7 @@ async def vendor_stats(user=Depends(require_role("vendor"))):
 
 @api.get("/vendor/products")
 async def vendor_products(user=Depends(require_role("vendor"))):
-    return await db.products.find({"vendor_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    return await db.products.find({"vendor_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(5000)
 
 
 @api.post("/vendor/products")
@@ -457,6 +482,68 @@ async def vendor_add_keys(pid: str, body: KeysIn, user=Depends(require_approved_
     return {"added": added, "skipped": len(keys) - added}
 
 
+@api.post("/vendor/products/bulk")
+async def vendor_bulk_import(body: BulkIn, user=Depends(require_approved_vendor)):
+    blocks = split_blocks(body.text, body.separator)
+    if not blocks:
+        raise HTTPException(400, "No items found. Check the separator.")
+    if len(blocks) > 2000:
+        raise HTTPException(400, "Max 2000 items per import")
+    pub = sorted(set(i for i in body.public_lines if i >= 0))
+    items = []
+    for b in blocks:
+        hidden = [ln for i, ln in enumerate(b) if i not in pub]
+        secret = "\n".join(hidden if body.deliver == "hidden" and hidden else b)
+        items.append((b, secret))
+    seen, existing = set(), set()
+    async for k in db.license_keys.find({"vendor_id": user["id"], "key": {"$in": [x[1] for x in items]}}, {"key": 1}):
+        existing.add(k["key"])
+    batch_id, now, cents = new_id(), now_iso(), to_cents(body.price)
+    vname = user.get("store_name") or user["name"]
+    products, keys, skipped = [], [], 0
+    for n, (b, secret) in enumerate(items, 1):
+        if secret in seen or secret in existing:
+            skipped += 1
+            continue
+        seen.add(secret)
+        preview = [b[i] for i in pub if i < len(b)]
+        title = b[body.title_line] if body.title_line is not None and body.title_line < len(b) else f"{body.title_prefix} #{n}"
+        pid = new_id()
+        products.append({"id": pid, "vendor_id": user["id"], "vendor_name": vname, "title": title[:120],
+                         "description": "\n".join(preview), "preview_lines": preview, "category": body.category,
+                         "price_cents": cents, "vendor_price_cents": cents,
+                         "image": body.image or DEFAULT_IMAGES[body.category], "tags": clean_tags(body.tags),
+                         "delivery_type": "keys", "delivery_content": "", "batch_id": batch_id,
+                         "status": "pending", "stock_count": 1, "sales_count": 0, "created_at": now})
+        keys.append({"id": new_id(), "product_id": pid, "vendor_id": user["id"], "key": secret,
+                     "status": "available", "created_at": now})
+    if products:
+        await db.products.insert_many(products)
+        await db.license_keys.insert_many(keys)
+    await audit(user, "product.bulk_import", batch_id, details=f"{len(products)} items @ ${body.price:.2f}, {skipped} duplicates skipped")
+    return {"batch_id": batch_id, "created": len(products), "skipped": skipped}
+
+
+async def _delete_products(query: dict, actor: dict, label: str):
+    pids = [p["id"] async for p in db.products.find(query, {"id": 1})]
+    if not pids:
+        raise HTTPException(404, "Product not found")
+    await db.products.delete_many({"id": {"$in": pids}})
+    k = await db.license_keys.delete_many({"product_id": {"$in": pids}, "status": "available"})
+    await audit(actor, "product.delete", label, details=f"{len(pids)} product(s), {k.deleted_count} unsold keys removed")
+    return {"deleted": len(pids), "keys_removed": k.deleted_count}
+
+
+@api.delete("/vendor/products/{pid}")
+async def vendor_delete_product(pid: str, user=Depends(require_role("vendor"))):
+    return await _delete_products({"id": pid, "vendor_id": user["id"]}, user, pid)
+
+
+@api.delete("/vendor/batches/{bid}")
+async def vendor_delete_batch(bid: str, user=Depends(require_role("vendor"))):
+    return await _delete_products({"batch_id": bid, "vendor_id": user["id"]}, user, bid)
+
+
 @api.get("/vendor/products/{pid}/keys")
 async def vendor_list_keys(pid: str, user=Depends(require_role("vendor"))):
     keys = await db.license_keys.find({"product_id": pid, "vendor_id": user["id"]},
@@ -478,7 +565,7 @@ async def vendor_delete_key(kid: str, user=Depends(require_approved_vendor)):
 
 @api.get("/vendor/sales")
 async def vendor_sales(user=Depends(require_role("vendor"))):
-    orders = await db.orders.find({"vendor_id": user["id"]}, {"_id": 0, "license_key": 0}).sort("created_at", -1).to_list(1000)
+    orders = await db.orders.find({"vendor_id": user["id"]}, {"_id": 0, "license_key": 0}).sort("created_at", -1).to_list(5000)
     return orders
 
 
@@ -605,7 +692,7 @@ async def admin_vendors(status: str = "all", user=Depends(admin_dep)):
     q = {"role": "vendor"}
     if status != "all":
         q["vendor_status"] = status
-    return await db.users.find(q, {"_id": 0, "password_hash": 0}).sort("created_at", -1).to_list(1000)
+    return await db.users.find(q, {"_id": 0, "password_hash": 0}).sort("created_at", -1).to_list(5000)
 
 
 async def _set_vendor_status(vid: str, status: str, actor: dict, reason: str = ""):
@@ -640,7 +727,7 @@ async def admin_vendor_commission(vid: str, body: VendorCommissionIn, user=Depen
 @api.get("/admin/products")
 async def admin_products(status: str = "all", user=Depends(admin_dep)):
     q = {} if status == "all" else {"status": status}
-    return await db.products.find(q, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    return await db.products.find(q, {"_id": 0}).sort("created_at", -1).to_list(5000)
 
 
 @api.post("/admin/products/{pid}/approve")
@@ -682,6 +769,26 @@ async def admin_price_override(pid: str, body: PriceIn, user=Depends(admin_dep))
     return {"ok": True}
 
 
+@api.post("/admin/batches/{bid}/approve")
+async def admin_approve_batch(bid: str, body: ApproveProductIn, user=Depends(admin_dep)):
+    q = {"batch_id": bid, "status": {"$ne": "approved"}}
+    first = await db.products.find_one(q, {"_id": 0})
+    if not first:
+        raise HTTPException(404, "No pending items in this batch")
+    upd = {"status": "approved", "approved_at": now_iso(), "reason": None}
+    if body.price:
+        upd["price_cents"] = to_cents(body.price)
+    r = await db.products.update_many(q, {"$set": upd})
+    await audit(user, "product.batch_approve", bid, details=f"{r.modified_count} items" + (f" @ ${body.price:.2f}" if body.price else ""))
+    await notify(first["vendor_id"], "Batch approved", f"{r.modified_count} items from your bulk import are now live.")
+    return {"approved": r.modified_count}
+
+
+@api.delete("/admin/products/{pid}")
+async def admin_delete_product(pid: str, user=Depends(admin_dep)):
+    return await _delete_products({"id": pid}, user, pid)
+
+
 @api.get("/admin/settings")
 async def admin_get_settings(user=Depends(admin_dep)):
     return await get_settings()
@@ -712,7 +819,7 @@ async def admin_users(q: str = "", role: str = "all", user=Depends(admin_dep)):
         query["role"] = role
     if q:
         query["$or"] = [{"email": {"$regex": q, "$options": "i"}}, {"name": {"$regex": q, "$options": "i"}}]
-    return await db.users.find(query, {"_id": 0, "password_hash": 0}).sort("created_at", -1).to_list(1000)
+    return await db.users.find(query, {"_id": 0, "password_hash": 0}).sort("created_at", -1).to_list(5000)
 
 
 @api.post("/admin/users/{uid}/adjust")
@@ -740,7 +847,7 @@ async def admin_user_status(uid: str, body: StatusIn, user=Depends(admin_dep)):
 
 @api.get("/admin/orders")
 async def admin_orders(user=Depends(admin_dep)):
-    return await db.orders.find({}, {"_id": 0, "license_key": 0}).sort("created_at", -1).to_list(1000)
+    return await db.orders.find({}, {"_id": 0, "license_key": 0}).sort("created_at", -1).to_list(5000)
 
 
 @api.get("/admin/audit")
@@ -768,6 +875,8 @@ async def startup():
     await db.deposits.create_index("txid", unique=True, partialFilterExpression={"txid": {"$type": "string"}})
     await db.license_keys.create_index([("product_id", 1), ("key", 1)], unique=True)
     await db.license_keys.create_index([("product_id", 1), ("status", 1)])
+    await db.license_keys.create_index([("vendor_id", 1), ("key", 1)])
+    await db.products.create_index("batch_id")
     await db.login_attempts.create_index("identifier")
     await db.captchas.create_index("expires_at", expireAfterSeconds=0)
     await seed_all()

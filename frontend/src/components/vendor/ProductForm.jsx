@@ -4,7 +4,7 @@ import { Upload, Check, X, KeyRound, FileText, Lock, Eye } from "lucide-react";
 import { api, errMsg, CATEGORIES, imgSrc } from "@/lib/api";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-const DEFAULT_IMAGES = [
+export const DEFAULT_IMAGES = [
   "https://images.unsplash.com/photo-1608742213509-815b97c30b36?w=800&q=80",
   "https://images.unsplash.com/photo-1720962158937-7ea890052166?w=800&q=80",
   "https://images.unsplash.com/photo-1705510144116-cc4d88838b14?w=800&q=80",
@@ -13,7 +13,7 @@ const DEFAULT_IMAGES = [
 ];
 const blank = { title: "", description: "", category: CATEGORIES[0], price: "", image: "", tags: [], delivery_type: "keys", delivery_content: "" };
 
-function TagInput({ tags, onChange }) {
+export function TagInput({ tags, onChange }) {
   const [t, setT] = useState("");
   const add = () => {
     const v = t.trim().toLowerCase().replace(/,/g, "");
