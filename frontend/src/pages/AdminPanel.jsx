@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LayoutDashboard, ArrowDownToLine, ArrowUpFromLine, UserCheck, ListChecks, Settings, Users, ScrollText, LayoutTemplate, Store } from "lucide-react";
+import { LayoutDashboard, ArrowDownToLine, ArrowUpFromLine, UserCheck, ListChecks, Settings, Users, ScrollText, Contact, LayoutTemplate, Store } from "lucide-react";
 import VendorDashboard from "@/pages/VendorDashboard";
 import { AdminSite } from "@/components/admin/AdminSite";
 import { useFetch } from "@/lib/useFetch";
@@ -10,6 +10,7 @@ import { AdminVendors } from "@/components/admin/AdminVendors";
 import { AdminListings } from "@/components/admin/AdminListings";
 import { AdminSettings } from "@/components/admin/AdminSettings";
 import { AdminUsers } from "@/components/admin/AdminUsers";
+import { AdminUserDetails } from "@/components/admin/AdminUserDetails";
 import { AdminAudit, AdminOverview } from "@/components/admin/AdminAudit";
 
 const SECTIONS = [
@@ -22,6 +23,7 @@ const SECTIONS = [
   ["store", "My store (sell)", Store],
   ["site", "Shop content", LayoutTemplate],
   ["users", "Users", Users],
+  ["userdetails", "User details", Contact],
   ["audit", "Audit log", ScrollText],
 ];
 
@@ -54,6 +56,7 @@ export default function AdminPanel() {
           {tab === "store" && <VendorDashboard embedded />}
           {tab === "site" && <AdminSite />}
           {tab === "users" && <AdminUsers />}
+          {tab === "userdetails" && <AdminUserDetails />}
           {tab === "audit" && <AdminAudit />}
         </section>
       </div>

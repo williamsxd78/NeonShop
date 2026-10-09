@@ -1049,6 +1049,27 @@ async def admin_users(q: str = "", role: str = "all", user=Depends(admin_dep)):
     return await db.users.find(query, {"_id": 0, "password_hash": 0}).sort("created_at", -1).to_list(5000)
 
 
+@api.get("/admin/users/{uid}/details")
+async def admin_user_details(uid: str, user=Depends(admin_dep)):
+    u = await db.users.find_one({"id": uid}, {"_id": 0, "password_hash": 0})
+    if not u:
+        raise HTTPException(404, "User not found")
+    orders = await db.orders.find({"buyer_id": uid}, {"_id": 0, "license_key": 0, "delivery_content": 0}) \
+        .sort("created_at", -1).to_list(5000)
+    deposits = await db.deposits.find({"user_id": uid}, {"_id": 0}).sort("created_at", -1).to_list(50)
+    products = {}
+    for o in orders:
+        g = products.setdefault(o["product_id"], {"product_id": o["product_id"], "title": o["product_title"],
+                                                  "category": o.get("category"), "count": 0, "spent_cents": 0,
+                                                  "last_at": o["created_at"]})
+        g["count"] += 1
+        g["spent_cents"] += o["price_cents"]
+    return {"user": u, "orders": orders[:50], "deposits": deposits, "products": list(products.values()),
+            "stats": {"orders": len(orders), "spent_cents": sum(o["price_cents"] for o in orders),
+                      "deposited_cents": sum(d.get("credited_cents", 0) for d in deposits if d["status"] == "approved"),
+                      "pending_deposits": sum(1 for d in deposits if d["status"] == "pending")}}
+
+
 @api.post("/admin/users/{uid}/adjust")
 async def admin_adjust_balance(uid: str, body: AdjustIn, user=Depends(admin_dep)):
     amt = to_cents(body.amount)

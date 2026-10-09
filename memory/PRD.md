@@ -70,3 +70,8 @@ Multi-vendor, wallet-based B2B marketplace for digital goods (license keys/codes
 
 ## Iteration 9 (2026-06)
 - Auth split: /login and /register are buyer-only (role toggle removed) with an "Are you a vendor? Vendor login" link; /vendor/login and /vendor/register are the vendor portal (badge, store name required, role=vendor), with a "Not a vendor? Buyer login" link back
+
+## Iteration 10 (2026-06)
+- Admin "User details" section: searchable/filterable user list (name, email, role, balance); click a row to expand balance, products bought (grouped with count + spent), total spent, deposited, recent deposits, plus Add balance / Deduct
+- GET /api/admin/users/{uid}/details (hides license keys/delivery content)
+- Fixed the wallet adjust dialog (old 2-step prompt closed itself after step 1) -> single amount + reason dialog, shared with the Users tab

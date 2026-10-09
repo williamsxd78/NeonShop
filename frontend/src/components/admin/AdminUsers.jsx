@@ -3,7 +3,8 @@ import { toast } from "sonner";
 import { Search } from "lucide-react";
 import { api, errMsg, money, fmtDate } from "@/lib/api";
 import { useFetch } from "@/lib/useFetch";
-import { StatusBadge, FilterTabs, PromptDialog } from "@/components/Shared";
+import { StatusBadge, FilterTabs } from "@/components/Shared";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export function AdminUsers() {
   const [role, setRole] = useState("all");
@@ -46,18 +47,39 @@ export function AdminUsers() {
   );
 }
 
-function AdjustDialog({ user, onClose, onDone }) {
-  const [amount, setAmount] = useState(null);
+export function AdjustDialog({ user, onClose, onDone }) {
+  const [amount, setAmount] = useState("");
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const mode = user?.mode;
+  const close = () => { setAmount(""); setReason(""); onClose(); };
+  const submit = async (e) => {
+    e.preventDefault();
+    const v = parseFloat(amount);
+    setBusy(true);
+    try {
+      await api.post(`/admin/users/${user.id}/adjust`, { amount: mode ? (mode === "debit" ? -1 : 1) * Math.abs(v) : v, reason });
+      toast.success(mode === "debit" ? "Balance deducted" : "Wallet updated"); onDone(); close();
+    } catch (e2) { toast.error(errMsg(e2)); } finally { setBusy(false); }
+  };
   return (
-    <>
-      <PromptDialog testId="user-adjust-amount" open={!!user && amount === null} onOpenChange={(o) => !o && onClose()} title={`Adjust wallet · ${user?.email || ""}`}
-        description="Use a positive number to credit (e.g. dispute resolution) or negative to debit." label="Amount (USD)" type="number" confirmText="Next"
-        onSubmit={async (v) => setAmount(v)} />
-      <PromptDialog testId="user-adjust-reason" open={!!user && amount !== null} onOpenChange={(o) => { if (!o) { setAmount(null); onClose(); } }} title="Reason for adjustment" label="Reason (logged in audit)" confirmText="Apply"
-        onSubmit={async (r) => {
-          try { await api.post(`/admin/users/${user.id}/adjust`, { amount: parseFloat(amount), reason: r }); toast.success("Wallet adjusted"); onDone(); }
-          catch (e) { toast.error(errMsg(e)); } finally { setAmount(null); onClose(); }
-        }} />
-    </>
+    <Dialog open={!!user} onOpenChange={(o) => !o && close()}>
+      <DialogContent className="border-[#272B29] bg-[#121413] sm:max-w-md" data-testid="user-adjust-dialog">
+        <DialogHeader>
+          <DialogTitle className="font-display">{mode === "credit" ? "Add balance" : mode === "debit" ? "Deduct balance" : "Adjust wallet"}</DialogTitle>
+          <DialogDescription>{user?.email} · current {money(user?.balance_cents || 0)}{!mode && " · positive to credit, negative to debit"}</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={submit} className="space-y-4">
+          <div><label className="nk-label">Amount (USD)</label>
+            <input autoFocus required data-testid="user-adjust-amount-input" className="nk-input font-mono" type="number" step="0.01" min={mode ? "0.01" : undefined} value={amount} onChange={(e) => setAmount(e.target.value)} /></div>
+          <div><label className="nk-label">Reason (logged in audit)</label>
+            <input required data-testid="user-adjust-reason-input" className="nk-input" placeholder="e.g. Deposit not received, added manually" value={reason} onChange={(e) => setReason(e.target.value)} /></div>
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={close} className="nk-btn-ghost nk-btn-sm" data-testid="user-adjust-cancel">Cancel</button>
+            <button disabled={busy} className={mode === "debit" ? "nk-btn-danger nk-btn-sm" : "nk-btn-primary nk-btn-sm"} data-testid="user-adjust-confirm">{mode === "debit" ? "Deduct" : "Apply"}</button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
