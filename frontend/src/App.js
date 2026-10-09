@@ -13,6 +13,7 @@ import Account from "@/pages/Account";
 import VendorDashboard from "@/pages/VendorDashboard";
 import AdminPanel from "@/pages/AdminPanel";
 import Vendors from "@/pages/Vendors";
+import Support from "@/pages/Support";
 
 function Protected({ children, roles }) {
   const { user } = useAuth();
@@ -40,6 +41,7 @@ export default function App() {
             <Route path="/vault" element={<Protected><Vault /></Protected>} />
             <Route path="/orders" element={<Protected><Orders /></Protected>} />
             <Route path="/notifications" element={<Protected><Notifications /></Protected>} />
+            <Route path="/support" element={<Protected><Support /></Protected>} />
             <Route path="/account" element={<Protected><Account /></Protected>} />
             <Route path="/vendor" element={<Protected roles={["vendor"]}><VendorDashboard /></Protected>} />
             <Route path="/admin" element={<Protected roles={["admin"]}><AdminPanel /></Protected>} />

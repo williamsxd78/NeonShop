@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { User, Pencil, KeyRound, Wallet, Package, History, Bell, Boxes, Shield, BadgeCheck, LogOut, ChevronRight, ArrowLeft, Zap } from "lucide-react";
+import { User, Pencil, KeyRound, Wallet, Package, History, Bell, Boxes, Shield, BadgeCheck, LogOut, ChevronRight, ArrowLeft, Zap , MessageCircle } from "lucide-react";
 import { api, errMsg, money } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { StatusBadge, PromptDialog } from "@/components/Shared";
@@ -27,6 +27,7 @@ export default function Account() {
     ["/wallet", "Wallet transactions", "Deposits, purchases and credits", History, "#22D3EE"],
     ["/notifications", "Notifications", "Deposit approvals, deliveries, payouts", Bell, "#22D3EE"],
     ["/vendors", "Verified vendors", "Browse trusted sellers", BadgeCheck, "#4ADE80"],
+    ...(user.role !== "admin" ? [["/support", "Support tickets", "Ask a question, get replies from admin", MessageCircle, "#22C55E"]] : []),
   ];
 
   return (

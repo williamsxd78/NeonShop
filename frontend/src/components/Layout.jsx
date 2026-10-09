@@ -2,6 +2,7 @@ import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { Store, KeyRound, Wallet, ShoppingBag, LayoutGrid, Bell, Shield, Boxes, LogOut, Plus, Zap, Home, BadgeCheck, User } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { money } from "@/lib/api";
+import { ChatButton } from "@/components/ChatButton";
 
 const navCls = ({ isActive }) =>
   `flex items-center gap-2 rounded-full px-3.5 py-2 text-sm font-medium transition-colors ${isActive ? "bg-[#22C55E]/10 text-[#22C55E]" : "text-slate-400 hover:text-white"}`;
@@ -75,6 +76,7 @@ export default function Layout() {
         <div className="font-display text-lg font-bold">Neon<span className="text-[#22C55E]">Keys</span></div>
         <p className="mt-1 font-mono text-xs text-slate-600">© 2026 NeonKeys · Verified vendors · Instant delivery</p>
       </footer>
+      <ChatButton />
       <BottomNav />
     </div>
   );

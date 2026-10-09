@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LayoutDashboard, ArrowDownToLine, ArrowUpFromLine, UserCheck, ListChecks, Settings, Users, ScrollText, Contact, LayoutTemplate, Store } from "lucide-react";
+import { LayoutDashboard, ArrowDownToLine, ArrowUpFromLine, UserCheck, ListChecks, Settings, Users, ScrollText, Contact, MessageCircle, LayoutTemplate, Store } from "lucide-react";
 import VendorDashboard from "@/pages/VendorDashboard";
 import { AdminSite } from "@/components/admin/AdminSite";
 import { useFetch } from "@/lib/useFetch";
@@ -11,6 +11,7 @@ import { AdminListings } from "@/components/admin/AdminListings";
 import { AdminSettings } from "@/components/admin/AdminSettings";
 import { AdminUsers } from "@/components/admin/AdminUsers";
 import { AdminUserDetails } from "@/components/admin/AdminUserDetails";
+import { AdminTickets } from "@/components/admin/AdminTickets";
 import { AdminAudit, AdminOverview } from "@/components/admin/AdminAudit";
 
 const SECTIONS = [
@@ -19,6 +20,7 @@ const SECTIONS = [
   ["withdrawals", "Withdrawal requests", ArrowUpFromLine],
   ["vendors", "Vendor requests", UserCheck],
   ["listings", "Listing requests", ListChecks],
+  ["tickets", "Support tickets", MessageCircle],
   ["settings", "Commission & wallets", Settings],
   ["store", "My store (sell)", Store],
   ["site", "Shop content", LayoutTemplate],
@@ -52,6 +54,7 @@ export default function AdminPanel() {
           {tab === "withdrawals" && <AdminWithdrawals onChange={reloadStats} />}
           {tab === "vendors" && <AdminVendors onChange={reloadStats} globalPct={settings?.commission_pct} />}
           {tab === "listings" && <AdminListings onChange={reloadStats} />}
+          {tab === "tickets" && <AdminTickets onChange={reloadStats} />}
           {tab === "settings" && <AdminSettings settings={settings} onSaved={reloadSettings} />}
           {tab === "store" && <VendorDashboard embedded />}
           {tab === "site" && <AdminSite />}

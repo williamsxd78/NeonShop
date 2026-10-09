@@ -766,6 +766,7 @@ async def admin_stats(user=Depends(admin_dep)):
             "withdrawals": await db.withdrawals.count_documents({"status": "pending"}),
             "vendors": await db.users.count_documents({"role": "vendor", "vendor_status": "pending"}),
             "listings": await db.products.count_documents({"status": "pending"}),
+            "tickets": await db.tickets.count_documents({"status": "open"}),
         },
         "recent_orders": recent,
     }
@@ -1070,6 +1071,100 @@ async def admin_user_details(uid: str, user=Depends(admin_dep)):
                       "pending_deposits": sum(1 for d in deposits if d["status"] == "pending")}}
 
 
+# ---------------- Support tickets ----------------
+TICKET_TOPICS = ["General", "Deposit", "Order", "Vendor", "Account"]
+
+
+class TicketIn(BaseModel):
+    subject: str = Field(min_length=3, max_length=120)
+    topic: Literal["General", "Deposit", "Order", "Vendor", "Account"] = "General"
+    message: str = Field(min_length=1, max_length=4000)
+    order_id: Optional[str] = None
+
+
+class TicketMsgIn(BaseModel):
+    message: str = Field(min_length=1, max_length=4000)
+
+
+class TicketStatusIn(BaseModel):
+    status: Literal["open", "closed"]
+
+
+def _msg(user: dict, text: str) -> dict:
+    return {"id": new_id(), "author_id": user["id"], "author_name": user.get("name") or user["email"],
+            "from_admin": user["role"] == "admin", "message": text.strip(), "created_at": now_iso()}
+
+
+async def _ticket_for(tid: str, user: dict) -> dict:
+    q = {"id": tid} if user["role"] == "admin" else {"id": tid, "user_id": user["id"]}
+    t = await db.tickets.find_one(q, {"_id": 0})
+    if not t:
+        raise HTTPException(404, "Ticket not found")
+    return t
+
+
+@api.post("/tickets")
+async def create_ticket(body: TicketIn, user=Depends(get_current_user)):
+    t = {"id": new_id(), "ref": "TCK-" + secrets.token_hex(3).upper(), "user_id": user["id"],
+         "user_email": user["email"], "user_name": user.get("name"), "user_role": user["role"],
+         "subject": body.subject.strip(), "topic": body.topic, "order_id": body.order_id,
+         "status": "open", "unread_user": False, "unread_admin": True,
+         "messages": [_msg(user, body.message)], "created_at": now_iso(), "updated_at": now_iso()}
+    await db.tickets.insert_one(t)
+    t.pop("_id", None)
+    return t
+
+
+@api.get("/tickets")
+async def my_tickets(user=Depends(get_current_user)):
+    return await db.tickets.find({"user_id": user["id"]}, {"_id": 0, "messages": 0}).sort("updated_at", -1).to_list(500)
+
+
+@api.get("/tickets/{tid}")
+async def get_ticket(tid: str, user=Depends(get_current_user)):
+    t = await _ticket_for(tid, user)
+    flag = "unread_admin" if user["role"] == "admin" else "unread_user"
+    if t.get(flag):
+        await db.tickets.update_one({"id": tid}, {"$set": {flag: False}})
+        t[flag] = False
+    return t
+
+
+@api.post("/tickets/{tid}/messages")
+async def reply_ticket(tid: str, body: TicketMsgIn, user=Depends(get_current_user)):
+    t = await _ticket_for(tid, user)
+    admin = user["role"] == "admin"
+    if t["status"] == "closed" and not admin:
+        raise HTTPException(400, "This ticket is closed. Please open a new one.")
+    upd = {"status": "answered" if admin else "open", "updated_at": now_iso(),
+           "unread_user": admin, "unread_admin": not admin}
+    res = await db.tickets.find_one_and_update({"id": tid}, {"$push": {"messages": _msg(user, body.message)}, "$set": upd},
+                                               projection={"_id": 0}, return_document=ReturnDocument.AFTER)
+    if admin:
+        await notify(t["user_id"], "Support replied", f"{t['ref']} · {t['subject']}: {body.message.strip()[:200]}",
+                     "Support ticket reply")
+    return res
+
+
+@api.get("/admin/tickets")
+async def admin_tickets(status: str = "all", q: str = "", user=Depends(admin_dep)):
+    query = {} if status == "all" else {"status": status}
+    if q:
+        rx = {"$regex": re.escape(q), "$options": "i"}
+        query["$or"] = [{"subject": rx}, {"user_email": rx}, {"ref": rx}]
+    return await db.tickets.find(query, {"_id": 0, "messages": 0}).sort("updated_at", -1).to_list(1000)
+
+
+@api.post("/admin/tickets/{tid}/status")
+async def admin_ticket_status(tid: str, body: TicketStatusIn, user=Depends(admin_dep)):
+    t = await _ticket_for(tid, user)
+    await db.tickets.update_one({"id": tid}, {"$set": {"status": body.status, "updated_at": now_iso()}})
+    await audit(user, f"ticket.{body.status}", tid, None, t["user_id"], t["ref"])
+    if body.status == "closed":
+        await notify(t["user_id"], "Ticket closed", f"{t['ref']} · {t['subject']} was marked resolved.")
+    return {"ok": True}
+
+
 @api.post("/admin/users/{uid}/adjust")
 async def admin_adjust_balance(uid: str, body: AdjustIn, user=Depends(admin_dep)):
     amt = to_cents(body.amount)
@@ -1117,6 +1212,8 @@ app.add_middleware(CORSMiddleware, allow_credentials=True, allow_origins=os.envi
 @app.on_event("startup")
 async def startup():
     await db.users.create_index("email", unique=True)
+    await db.tickets.create_index("id", unique=True)
+    await db.tickets.create_index([("user_id", 1), ("updated_at", -1)])
     await db.users.create_index("id", unique=True)
     await db.products.create_index("id", unique=True)
     await db.deposits.create_index("reference", unique=True)

@@ -13,6 +13,9 @@ const STATUS = {
   rejected: "text-[#FF2A5F] border-[#FF2A5F]/30 bg-[#FF2A5F]/10",
   suspended: "text-[#FF2A5F] border-[#FF2A5F]/30 bg-[#FF2A5F]/10",
   sold: "text-slate-400 border-slate-600/40 bg-slate-700/20",
+  open: "text-[#FFB800] border-[#FFB800]/30 bg-[#FFB800]/10",
+  answered: "text-[#22D3EE] border-[#22D3EE]/30 bg-[#22D3EE]/10",
+  closed: "text-slate-400 border-slate-600/40 bg-slate-700/20",
 };
 
 export const StatusBadge = ({ status, testId }) => (
