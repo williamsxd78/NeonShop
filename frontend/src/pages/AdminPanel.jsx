@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { LayoutDashboard, ArrowDownToLine, ArrowUpFromLine, UserCheck, ListChecks, Settings, Users, ScrollText, LayoutTemplate } from "lucide-react";
+import { LayoutDashboard, ArrowDownToLine, ArrowUpFromLine, UserCheck, ListChecks, Settings, Users, ScrollText, LayoutTemplate, Store } from "lucide-react";
+import VendorDashboard from "@/pages/VendorDashboard";
 import { AdminSite } from "@/components/admin/AdminSite";
 import { useFetch } from "@/lib/useFetch";
 import { PageHeader } from "@/components/Shared";
@@ -18,6 +19,7 @@ const SECTIONS = [
   ["vendors", "Vendor requests", UserCheck],
   ["listings", "Listing requests", ListChecks],
   ["settings", "Commission & wallets", Settings],
+  ["store", "My store (sell)", Store],
   ["site", "Shop content", LayoutTemplate],
   ["users", "Users", Users],
   ["audit", "Audit log", ScrollText],
@@ -49,6 +51,7 @@ export default function AdminPanel() {
           {tab === "vendors" && <AdminVendors onChange={reloadStats} globalPct={settings?.commission_pct} />}
           {tab === "listings" && <AdminListings onChange={reloadStats} />}
           {tab === "settings" && <AdminSettings settings={settings} onSaved={reloadSettings} />}
+          {tab === "store" && <VendorDashboard embedded />}
           {tab === "site" && <AdminSite />}
           {tab === "users" && <AdminUsers />}
           {tab === "audit" && <AdminAudit />}

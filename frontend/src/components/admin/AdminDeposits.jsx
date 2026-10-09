@@ -3,17 +3,24 @@ import { toast } from "sonner";
 import { api, errMsg, money, fmtDate, COIN_LABEL } from "@/lib/api";
 import { useFetch } from "@/lib/useFetch";
 import { StatusBadge, Empty, FilterTabs, PromptDialog } from "@/components/Shared";
+import { ManualDeposit } from "@/components/admin/ManualDeposit";
+import { Plus } from "lucide-react";
 
 export function AdminDeposits({ onChange }) {
   const [status, setStatus] = useState("pending");
   const [list, reload] = useFetch("/admin/deposits", { status });
   const [approve, setApprove] = useState(null);
   const [reject, setReject] = useState(null);
+  const [manual, setManual] = useState(false);
   const done = () => { reload(); onChange(); };
 
   return (
     <div>
-      <FilterTabs value={status} onChange={setStatus} options={["pending", "awaiting_txid", "approved", "rejected", "all"]} testPrefix="dep-filter" />
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <FilterTabs value={status} onChange={setStatus} options={["pending", "awaiting_txid", "approved", "rejected", "all"]} testPrefix="dep-filter" />
+        <button data-testid="manual-deposit-btn" onClick={() => setManual(true)} className="nk-btn-primary nk-btn-sm mb-5"><Plus size={14} />Add funds manually</button>
+      </div>
+      <ManualDeposit open={manual} onOpenChange={setManual} onDone={done} />
       {!list?.length ? <Empty testId="admin-deposits-empty" text="No deposit requests here." /> : (
         <div className="nk-card overflow-x-auto">
           <table className="nk-table" data-testid="admin-deposits-table">
@@ -23,7 +30,7 @@ export function AdminDeposits({ onChange }) {
                 <td className="font-mono text-xs">{fmtDate(d.created_at)}</td>
                 <td className="text-xs">{d.user_email}</td>
                 <td className="font-mono text-xs">{d.reference}</td>
-                <td className="text-xs">{COIN_LABEL[d.coin]}</td>
+                <td className="text-xs">{COIN_LABEL[d.coin] || "Other"}{d.manual && <div className="font-mono text-[10px] uppercase text-[#22D3EE]" title={d.note}>manual · {d.reviewed_by}</div>}</td>
                 <td className="font-mono text-[#22C55E]">{money(d.amount_cents)}{d.credited_cents != null && d.credited_cents !== d.amount_cents && <div className="text-xs text-[#4ADE80]">credited {money(d.credited_cents)}</div>}</td>
                 <td className="max-w-[180px] truncate font-mono text-xs" title={d.txid}>{d.txid || "-"}</td>
                 <td><StatusBadge status={d.status} />{d.reason && <div className="mt-1 text-xs text-[#FF2A5F]">{d.reason}</div>}</td>

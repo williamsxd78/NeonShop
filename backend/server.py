@@ -212,6 +212,14 @@ def notice_active(n: dict) -> bool:
     return bool(n.get("enabled")) and (not st or st <= now) and (not en or now < en)
 
 
+class ManualDepositIn(BaseModel):
+    email: EmailStr
+    amount: float = Field(gt=0, le=1_000_000)
+    coin: Literal["BTC", "USDT_TRC20", "LTC", "ETH", "OTHER"] = "OTHER"
+    txid: Optional[str] = Field(default=None, max_length=200)
+    note: str = Field(min_length=2, max_length=500)
+
+
 class AdjustIn(BaseModel):
     amount: float
     reason: str = Field(min_length=2, max_length=500)
@@ -464,6 +472,8 @@ async def create_order(body: OrderIn, user=Depends(get_current_user)):
     vendor = await db.users.find_one({"id": p["vendor_id"]}, {"_id": 0})
     s = await get_settings()
     pct = vendor.get("commission_pct") if vendor and vendor.get("commission_pct") is not None else s["commission_pct"]
+    if vendor and vendor["role"] == "admin":
+        pct = 100
     commission = int(round(price * pct / 100))
     earning = price - commission
     order = {"id": order_id, "buyer_id": user["id"], "buyer_email": user["email"], "product_id": p["id"],
@@ -536,7 +546,7 @@ async def serve_file(path: str):
 
 # ---------------- Vendor ----------------
 @api.get("/vendor/stats")
-async def vendor_stats(user=Depends(require_role("vendor"))):
+async def vendor_stats(user=Depends(require_role("vendor", "admin"))):
     s = await get_settings()
     orders = await db.orders.find({"vendor_id": user["id"]}, {"_id": 0}).to_list(5000)
     return {"vendor_status": user.get("vendor_status"), "earnings_cents": user.get("earnings_cents", 0),
@@ -548,15 +558,23 @@ async def vendor_stats(user=Depends(require_role("vendor"))):
 
 
 @api.get("/vendor/products")
-async def vendor_products(user=Depends(require_role("vendor"))):
+async def vendor_products(user=Depends(require_role("vendor", "admin"))):
     return await db.products.find({"vendor_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(5000)
+
+
+def store_name(user: dict) -> str:
+    return user.get("store_name") or ("NeonKeys Official" if user["role"] == "admin" else user["name"])
+
+
+def listing_status(user: dict) -> dict:
+    return {"status": "approved", "approved_at": now_iso()} if user["role"] == "admin" else {"status": "pending"}
 
 
 @api.post("/vendor/products")
 async def vendor_create_product(body: ProductIn, user=Depends(require_approved_vendor)):
     await check_category(body.category)
-    p = {"id": new_id(), "vendor_id": user["id"], "vendor_name": user.get("store_name") or user["name"],
-         **product_fields(body), "status": "pending", "stock_count": 0, "sales_count": 0, "created_at": now_iso()}
+    p = {"id": new_id(), "vendor_id": user["id"], "vendor_name": store_name(user),
+         **product_fields(body), **listing_status(user), "stock_count": 0, "sales_count": 0, "created_at": now_iso()}
     await db.products.insert_one(p)
     p.pop("_id", None)
     await audit(user, "product.create", p["id"], details=f"{body.title} @ ${body.price:.2f}")
@@ -569,7 +587,7 @@ async def vendor_update_product(pid: str, body: ProductIn, user=Depends(require_
     p = await db.products.find_one({"id": pid, "vendor_id": user["id"]}, {"_id": 0})
     if not p:
         raise HTTPException(404, "Product not found")
-    upd = {**product_fields(body), "status": "pending", "updated_at": now_iso()}
+    upd = {**product_fields(body), **listing_status(user), "updated_at": now_iso()}
     await db.products.update_one({"id": pid}, {"$set": upd})
     await audit(user, "product.update", pid, details=f"resubmitted for review @ ${body.price:.2f}")
     return {**p, **upd}
@@ -612,7 +630,7 @@ async def vendor_bulk_import(body: BulkIn, user=Depends(require_approved_vendor)
     async for k in db.license_keys.find({"vendor_id": user["id"], "key": {"$in": [x[1] for x in items]}}, {"key": 1}):
         existing.add(k["key"])
     batch_id, now, cents = new_id(), now_iso(), to_cents(body.price)
-    vname = user.get("store_name") or user["name"]
+    vname = store_name(user)
     products, keys, skipped = [], [], 0
     for n, (b, secret) in enumerate(items, 1):
         if secret in seen or secret in existing:
@@ -628,7 +646,7 @@ async def vendor_bulk_import(body: BulkIn, user=Depends(require_approved_vendor)
                          "price_cents": cents, "vendor_price_cents": cents,
                          "image": body.image or default_image(body.category), "tags": clean_tags(body.tags),
                          "delivery_type": "keys", "delivery_content": "", "batch_id": batch_id,
-                         "status": "pending", "stock_count": 1, "sales_count": 0, "created_at": now})
+                         **listing_status(user), "stock_count": 1, "sales_count": 0, "created_at": now})
         keys.append({"id": new_id(), "product_id": pid, "vendor_id": user["id"], "key": secret,
                      "status": "available", "created_at": now})
     if products:
@@ -659,29 +677,29 @@ async def vendor_bulk_price(body: BulkIdsIn, user=Depends(require_approved_vendo
         raise HTTPException(400, "Price is required")
     cents = to_cents(body.price)
     r = await db.products.update_many({"id": {"$in": body.ids}, "vendor_id": user["id"]},
-                                      {"$set": {"vendor_price_cents": cents, "price_cents": cents, "status": "pending",
+                                      {"$set": {"vendor_price_cents": cents, "price_cents": cents, **listing_status(user),
                                                 "reason": None, "updated_at": now_iso()}})
     await audit(user, "product.bulk_price", None, details=f"{r.modified_count} listings -> ${body.price:.2f} (resubmitted for review)")
     return {"updated": r.modified_count}
 
 
 @api.post("/vendor/products/bulk-delete")
-async def vendor_bulk_delete(body: BulkIdsIn, user=Depends(require_role("vendor"))):
+async def vendor_bulk_delete(body: BulkIdsIn, user=Depends(require_role("vendor", "admin"))):
     return await _delete_products({"id": {"$in": body.ids}, "vendor_id": user["id"]}, user, f"{len(body.ids)} selected")
 
 
 @api.delete("/vendor/products/{pid}")
-async def vendor_delete_product(pid: str, user=Depends(require_role("vendor"))):
+async def vendor_delete_product(pid: str, user=Depends(require_role("vendor", "admin"))):
     return await _delete_products({"id": pid, "vendor_id": user["id"]}, user, pid)
 
 
 @api.delete("/vendor/batches/{bid}")
-async def vendor_delete_batch(bid: str, user=Depends(require_role("vendor"))):
+async def vendor_delete_batch(bid: str, user=Depends(require_role("vendor", "admin"))):
     return await _delete_products({"batch_id": bid, "vendor_id": user["id"]}, user, bid)
 
 
 @api.get("/vendor/products/{pid}/keys")
-async def vendor_list_keys(pid: str, user=Depends(require_role("vendor"))):
+async def vendor_list_keys(pid: str, user=Depends(require_role("vendor", "admin"))):
     keys = await db.license_keys.find({"product_id": pid, "vendor_id": user["id"]},
                                       {"_id": 0}).sort("created_at", -1).to_list(2000)
     for k in keys:
@@ -700,7 +718,7 @@ async def vendor_delete_key(kid: str, user=Depends(require_approved_vendor)):
 
 
 @api.get("/vendor/sales")
-async def vendor_sales(user=Depends(require_role("vendor"))):
+async def vendor_sales(user=Depends(require_role("vendor", "admin"))):
     orders = await db.orders.find({"vendor_id": user["id"]}, {"_id": 0, "license_key": 0}).sort("created_at", -1).to_list(5000)
     return orders
 
@@ -754,6 +772,31 @@ async def admin_stats(user=Depends(admin_dep)):
 async def admin_deposits(status: str = "pending", user=Depends(admin_dep)):
     q = {} if status == "all" else {"status": status}
     return await db.deposits.find(q, {"_id": 0}).sort("created_at", -1).to_list(500)
+
+
+@api.post("/admin/deposits/manual")
+async def admin_manual_deposit(body: ManualDepositIn, user=Depends(admin_dep)):
+    target = await db.users.find_one({"email": body.email.lower()}, {"_id": 0})
+    if not target:
+        raise HTTPException(404, "No user with that email")
+    credit = to_cents(body.amount)
+    dep = {"id": new_id(), "user_id": target["id"], "user_email": target["email"], "coin": body.coin,
+           "network": COINS[body.coin]["network"] if body.coin in COINS else "manual", "address": "",
+           "amount_cents": credit, "credited_cents": credit, "reference": "MAN-" + secrets.token_hex(4).upper(),
+           "status": "approved", "manual": True, "note": body.note, "reviewed_by": user["email"],
+           "reviewed_at": now_iso(), "submitted_at": now_iso(), "created_at": now_iso()}
+    if body.txid and body.txid.strip():
+        dep["txid"] = body.txid.strip()
+    try:
+        await db.deposits.insert_one(dep)
+    except DuplicateKeyError:
+        raise HTTPException(400, "This TXID was already used for another deposit")
+    await db.users.update_one({"id": target["id"]}, {"$inc": {"balance_cents": credit}})
+    await audit(user, "deposit.manual", dep["id"], credit, target["id"], f"{body.coin} txid {dep.get('txid', '-')} · {body.note}")
+    await notify(target["id"], "Deposit approved", f"${credit / 100:.2f} has been credited to your wallet (ref {dep['reference']}).",
+                 "Deposit approved")
+    dep.pop("_id", None)
+    return dep
 
 
 @api.post("/admin/deposits/{did}/approve")

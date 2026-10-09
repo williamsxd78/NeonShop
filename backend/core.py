@@ -100,8 +100,8 @@ def require_role(*roles):
     return dep
 
 
-async def require_approved_vendor(user: dict = Depends(require_role("vendor"))):
-    if user.get("vendor_status") != "approved":
+async def require_approved_vendor(user: dict = Depends(require_role("vendor", "admin"))):
+    if user["role"] == "vendor" and user.get("vendor_status") != "approved":
         raise HTTPException(403, "Vendor account not approved yet")
     return user
 

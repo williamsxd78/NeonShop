@@ -82,7 +82,7 @@ export function BulkImport({ open, onOpenChange, onDone }) {
     setBusy(true);
     try {
       const { data } = await api.post("/vendor/products/bulk", { text: bulk, separator: sep, public_lines: pub, title_line: titleLine, ...meta, category: cat, price: parseFloat(meta.price), image: meta.image || null });
-      toast.success(`${data.created} products submitted for review${data.skipped ? `, ${data.skipped} duplicates skipped` : ""}`);
+      toast.success(`${data.created} products imported${data.skipped ? `, ${data.skipped} duplicates skipped` : ""}`);
       close(false); onDone();
     } catch (e) { toast.error(errMsg(e)); } finally { setBusy(false); }
   };

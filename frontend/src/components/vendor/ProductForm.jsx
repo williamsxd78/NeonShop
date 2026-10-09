@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { Upload, Check, X, KeyRound, FileText, Lock, Eye } from "lucide-react";
 import { api, errMsg, imgSrc } from "@/lib/api";
 import { useSite } from "@/lib/site";
+import { useAuth } from "@/context/AuthContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export const DEFAULT_IMAGES = [
@@ -47,6 +48,7 @@ export function ProductForm({ open, onOpenChange, product, onSaved }) {
   const [f, setF] = useState(blank);
   const [busy, setBusy] = useState(false);
   const { categories: CATEGORIES } = useSite();
+  const { user } = useAuth();
   useEffect(() => {
     if (open) setF(product ? { ...blank, ...product, price: (product.vendor_price_cents ?? product.price_cents) / 100, image: product.image || "", tags: product.tags || [], delivery_type: product.delivery_type || "keys", delivery_content: product.delivery_content || "" } : { ...blank, category: CATEGORIES[0] || "" });
   }, [open, product]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -69,7 +71,7 @@ export function ProductForm({ open, onOpenChange, product, onSaved }) {
       tags: f.tags, delivery_type: f.delivery_type, delivery_content: f.delivery_content };
     try {
       if (product) await api.put(`/vendor/products/${product.id}`, body); else await api.post("/vendor/products", body);
-      toast.success("Submitted for admin review"); onOpenChange(false); onSaved();
+      toast.success(user?.role === "admin" ? "Published" : "Submitted for admin review"); onOpenChange(false); onSaved();
     } catch (e2) { toast.error(errMsg(e2)); } finally { setBusy(false); }
   };
 
@@ -124,7 +126,7 @@ export function ProductForm({ open, onOpenChange, product, onSaved }) {
             {f.delivery_type === "keys" && <p className="text-[11px] text-slate-500">After saving, add license keys from the <b>Keys</b> button. Each buyer gets one unique key.</p>}
           </Section>
 
-          <p className="text-xs text-slate-500">Saving sends the listing to admin review. Admin may adjust the final price.</p>
+          <p className="text-xs text-slate-500">{user?.role === "admin" ? "Your listings go live immediately." : "Saving sends the listing to admin review. Admin may adjust the final price."}</p>
           <button data-testid="pf-submit-btn" disabled={busy} className="nk-btn-primary w-full">{product ? "Save & resubmit" : "Submit for review"}</button>
         </form>
       </DialogContent>

@@ -103,14 +103,15 @@ function SalesTab() {
   );
 }
 
-export default function VendorDashboard() {
+export default function VendorDashboard({ embedded }) {
   const { user, refresh } = useAuth();
   const [tab, setTab] = useState("overview");
   const [stats, reloadStats] = useFetch("/vendor/stats");
   const [products, reloadProducts] = useFetch("/vendor/products");
   const reload = () => { reloadStats(); reloadProducts(); refresh(); };
 
-  if (user.vendor_status !== "approved") {
+  const isAdmin = user.role === "admin";
+  if (!isAdmin && user.vendor_status !== "approved") {
     const rejected = user.vendor_status === "rejected";
     return (
       <div className="nk-card mx-auto mt-10 max-w-lg p-10 text-center" data-testid="vendor-not-approved">
@@ -123,8 +124,9 @@ export default function VendorDashboard() {
 
   return (
     <div>
-      <PageHeader eyebrow={user.store_name} title="Vendor dashboard" />
-      <FilterTabs value={tab} onChange={setTab} options={["overview", "products", "sales", "withdrawals"]} testPrefix="vendor-tab" />
+      {!embedded && <PageHeader eyebrow={user.store_name} title="Vendor dashboard" />}
+      {isAdmin && <p className="mb-4 text-xs text-slate-500" data-testid="admin-store-note">Sold as <b className="text-slate-300">NeonKeys Official</b>. Your listings go live instantly and 100% of each sale is platform revenue.</p>}
+      <FilterTabs value={tab} onChange={setTab} options={isAdmin ? ["overview", "products", "sales"] : ["overview", "products", "sales", "withdrawals"]} testPrefix="vendor-tab" />
       {tab === "overview" && stats && (
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4" data-testid="vendor-overview">
           <Stat testId="vstat-earnings" label="Earnings balance" value={money(stats.earnings_cents)} accent="#4ADE80" />
