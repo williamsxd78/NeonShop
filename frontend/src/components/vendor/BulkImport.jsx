@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Eye, Lock, Type, Upload, ArrowLeft, ArrowRight, Check, FileText } from "lucide-react";
-import { api, errMsg, CATEGORIES, money } from "@/lib/api";
+import { api, errMsg, money } from "@/lib/api";
+import { useSite } from "@/lib/site";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { DEFAULT_IMAGES, TagInput } from "@/components/vendor/ProductForm";
 
@@ -57,11 +58,13 @@ export function BulkImport({ open, onOpenChange, onDone }) {
   const [custom, setCustom] = useState("");
   const [pub, setPub] = useState([]);
   const [titleLine, setTitleLine] = useState(null);
-  const [meta, setMeta] = useState({ title_prefix: "Item", category: CATEGORIES[0], price: "", image: "", tags: [], deliver: "all" });
+  const { categories: CATEGORIES } = useSite();
+  const [meta, setMeta] = useState({ title_prefix: "Item", category: "", price: "", image: "", tags: [], deliver: "all" });
   const [bulk, setBulk] = useState("");
   const [busy, setBusy] = useState(false);
   const sep = sepMode === "custom" ? custom : sepMode;
   const lines = useMemo(() => splitBlocks(sample, sep)[0] || [], [sample, sep]);
+  const cat = meta.category || CATEGORIES[0] || "";
   const blocks = useMemo(() => (bulk.trim() && sep ? splitBlocks(bulk, sep) : []), [bulk, sep]);
   const odd = blocks.filter((b) => b.length !== lines.length).length;
 
@@ -78,7 +81,7 @@ export function BulkImport({ open, onOpenChange, onDone }) {
   const submit = async () => {
     setBusy(true);
     try {
-      const { data } = await api.post("/vendor/products/bulk", { text: bulk, separator: sep, public_lines: pub, title_line: titleLine, ...meta, price: parseFloat(meta.price), image: meta.image || null });
+      const { data } = await api.post("/vendor/products/bulk", { text: bulk, separator: sep, public_lines: pub, title_line: titleLine, ...meta, category: cat, price: parseFloat(meta.price), image: meta.image || null });
       toast.success(`${data.created} products submitted for review${data.skipped ? `, ${data.skipped} duplicates skipped` : ""}`);
       close(false); onDone();
     } catch (e) { toast.error(errMsg(e)); } finally { setBusy(false); }
@@ -127,7 +130,7 @@ export function BulkImport({ open, onOpenChange, onDone }) {
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
               {titleLine === null && <div><label className="nk-label">Title prefix</label><input data-testid="bulk-title-prefix" className="nk-input" value={meta.title_prefix} onChange={setM("title_prefix")} /></div>}
-              <div><label className="nk-label">Category</label><select data-testid="bulk-category" className="nk-input" value={meta.category} onChange={setM("category")}>{CATEGORIES.map((c) => <option key={c}>{c}</option>)}</select></div>
+              <div><label className="nk-label">Category</label><select data-testid="bulk-category" className="nk-input" value={cat} onChange={setM("category")}>{CATEGORIES.map((c) => <option key={c}>{c}</option>)}</select></div>
               <div><label className="nk-label">Price each (USD)</label><input data-testid="bulk-price" className="nk-input font-mono" type="number" min="0.01" step="0.01" value={meta.price} onChange={setM("price")} /></div>
             </div>
             <div><label className="nk-label">Tags</label><TagInput tags={meta.tags} onChange={(tags) => setMeta({ ...meta, tags })} /></div>

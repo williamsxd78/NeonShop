@@ -50,7 +50,7 @@ class ProfileIn(BaseModel):
 class ProductIn(BaseModel):
     title: str = Field(min_length=2, max_length=120)
     description: str = Field(default="", max_length=4000)
-    category: Literal["Software Licenses", "Templates", "Digital Assets", "Subscriptions", "Courses"]
+    category: str = Field(min_length=1, max_length=40)
     price: float = Field(gt=0, le=100000)
     image: Optional[str] = None
     tags: List[str] = Field(default_factory=list, max_length=8)
@@ -62,12 +62,21 @@ def clean_tags(tags):
     return list(dict.fromkeys(t.strip().lower()[:24] for t in tags if t.strip()))[:8]
 
 
+def default_image(cat: str) -> str:
+    return DEFAULT_IMAGES.get(cat) or next(iter(DEFAULT_IMAGES.values()))
+
+
+async def check_category(cat: str):
+    if cat not in (await get_settings())["categories"]:
+        raise HTTPException(400, "Unknown category")
+
+
 def product_fields(body: ProductIn) -> dict:
     if body.delivery_type == "content" and not body.delivery_content.strip():
         raise HTTPException(400, "Delivery content is required for 'same content for every buyer' products")
     return {"title": body.title, "description": body.description, "category": body.category,
             "price_cents": to_cents(body.price), "vendor_price_cents": to_cents(body.price),
-            "image": body.image or DEFAULT_IMAGES[body.category], "tags": clean_tags(body.tags),
+            "image": body.image or default_image(body.category), "tags": clean_tags(body.tags),
             "delivery_type": body.delivery_type, "delivery_content": body.delivery_content.strip()}
 
 
@@ -81,7 +90,7 @@ class BulkIn(BaseModel):
     title_line: Optional[int] = None
     title_prefix: str = Field(default="Item", max_length=80)
     deliver: Literal["all", "hidden"] = "all"
-    category: Literal["Software Licenses", "Templates", "Digital Assets", "Subscriptions", "Courses"]
+    category: str = Field(min_length=1, max_length=40)
     price: float = Field(gt=0, le=100000)
     image: Optional[str] = None
     tags: List[str] = Field(default_factory=list, max_length=8)
@@ -148,6 +157,24 @@ class VendorCommissionIn(BaseModel):
 class SettingsIn(BaseModel):
     commission_pct: Optional[float] = Field(default=None, ge=0, le=100)
     addresses: Optional[Dict[str, str]] = None
+
+
+class NoticeIn(BaseModel):
+    enabled: bool = True
+    tone: Literal["amber", "green", "cyan", "red"] = "amber"
+    title: str = Field(default="", max_length=80)
+    body: str = Field(default="", max_length=600)
+    highlight: str = Field(default="", max_length=200)
+
+
+class CategoryIn(BaseModel):
+    name: str = Field(min_length=1, max_length=40)
+    original: Optional[str] = None
+
+
+class SiteIn(BaseModel):
+    notice: Optional[NoticeIn] = None
+    categories: Optional[List[CategoryIn]] = Field(default=None, min_length=1, max_length=30)
 
 
 class AdjustIn(BaseModel):
@@ -232,7 +259,13 @@ async def update_profile(body: ProfileIn, user=Depends(get_current_user)):
 # ---------------- Public catalog ----------------
 @api.get("/categories")
 async def categories():
-    return CATEGORIES
+    return (await get_settings())["categories"]
+
+
+@api.get("/site")
+async def site():
+    s = await get_settings()
+    return {"categories": s["categories"], "notice": s["notice"]}
 
 
 def parse_attrs(lines: List[str]) -> List[dict]:
@@ -248,7 +281,7 @@ def base_query(category: str, vendor: str) -> dict:
     query = {"status": "approved"}
     if vendor:
         query["vendor_id"] = vendor
-    if category and category in CATEGORIES:
+    if category:
         query["category"] = category
     return query
 
@@ -477,6 +510,7 @@ async def vendor_products(user=Depends(require_role("vendor"))):
 
 @api.post("/vendor/products")
 async def vendor_create_product(body: ProductIn, user=Depends(require_approved_vendor)):
+    await check_category(body.category)
     p = {"id": new_id(), "vendor_id": user["id"], "vendor_name": user.get("store_name") or user["name"],
          **product_fields(body), "status": "pending", "stock_count": 0, "sales_count": 0, "created_at": now_iso()}
     await db.products.insert_one(p)
@@ -487,6 +521,7 @@ async def vendor_create_product(body: ProductIn, user=Depends(require_approved_v
 
 @api.put("/vendor/products/{pid}")
 async def vendor_update_product(pid: str, body: ProductIn, user=Depends(require_approved_vendor)):
+    await check_category(body.category)
     p = await db.products.find_one({"id": pid, "vendor_id": user["id"]}, {"_id": 0})
     if not p:
         raise HTTPException(404, "Product not found")
@@ -517,6 +552,7 @@ async def vendor_add_keys(pid: str, body: KeysIn, user=Depends(require_approved_
 
 @api.post("/vendor/products/bulk")
 async def vendor_bulk_import(body: BulkIn, user=Depends(require_approved_vendor)):
+    await check_category(body.category)
     blocks = split_blocks(body.text, body.separator)
     if not blocks:
         raise HTTPException(400, "No items found. Check the separator.")
@@ -546,7 +582,7 @@ async def vendor_bulk_import(body: BulkIn, user=Depends(require_approved_vendor)
                          "description": "\n".join(preview), "preview_lines": preview, "attrs": parse_attrs(preview),
                          "category": body.category,
                          "price_cents": cents, "vendor_price_cents": cents,
-                         "image": body.image or DEFAULT_IMAGES[body.category], "tags": clean_tags(body.tags),
+                         "image": body.image or default_image(body.category), "tags": clean_tags(body.tags),
                          "delivery_type": "keys", "delivery_content": "", "batch_id": batch_id,
                          "status": "pending", "stock_count": 1, "sales_count": 0, "created_at": now})
         keys.append({"id": new_id(), "product_id": pid, "vendor_id": user["id"], "key": secret,
@@ -863,6 +899,34 @@ async def admin_update_settings(body: SettingsIn, user=Depends(admin_dep)):
         changed = [c for c in COINS if addrs[c] != s["addresses"].get(c, "")]
         if changed:
             await audit(user, "settings.addresses", None, details=f"updated: {', '.join(changed)}")
+    if upd:
+        await db.settings.update_one({"key": "global"}, {"$set": upd})
+    return await get_settings()
+
+
+@api.put("/admin/site")
+async def admin_update_site(body: SiteIn, user=Depends(admin_dep)):
+    s = await get_settings()
+    upd = {}
+    if body.notice is not None:
+        upd["notice"] = {k: (v.strip() if isinstance(v, str) else v) for k, v in body.notice.model_dump().items()}
+        await audit(user, "settings.notice", None, details=f"enabled={body.notice.enabled}, title={body.notice.title[:40]}")
+    if body.categories is not None:
+        names = [c.name.strip() for c in body.categories]
+        if len(set(n.lower() for n in names)) != len(names) or not all(names):
+            raise HTTPException(400, "Category names must be unique and not empty")
+        kept = {c.original for c in body.categories if c.original}
+        for old in s["categories"]:
+            if old not in kept:
+                n = await db.products.count_documents({"category": old})
+                if n:
+                    raise HTTPException(400, f"'{old}' has {n} product(s). Rename it or move/delete those products first.")
+        for c in body.categories:
+            if c.original and c.original in s["categories"] and c.original != c.name.strip():
+                await db.products.update_many({"category": c.original}, {"$set": {"category": c.name.strip()}})
+                await db.orders.update_many({"category": c.original}, {"$set": {"category": c.name.strip()}})
+        upd["categories"] = names
+        await audit(user, "settings.categories", None, details=", ".join(names))
     if upd:
         await db.settings.update_one({"key": "global"}, {"$set": upd})
     return await get_settings()

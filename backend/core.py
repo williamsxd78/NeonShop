@@ -124,8 +124,15 @@ async def notify(user_id: str, title: str, body: str, email_subject: str = None)
             asyncio.create_task(_safe_send(user, email_subject, title, body))
 
 
+DEFAULT_NOTICE = {"enabled": True, "tone": "amber", "title": "All sales final",
+                  "body": "Keys are delivered instantly and are non-refundable. Disputes are reviewed by admin and resolved via wallet credit.",
+                  "highlight": "Every key is reserved atomically — never sold twice."}
+
+
 async def get_settings() -> dict:
     s = await db.settings.find_one({"key": "global"}, {"_id": 0})
+    s.setdefault("categories", list(CATEGORIES))
+    s["notice"] = {**DEFAULT_NOTICE, **(s.get("notice") or {})}
     return s
 
 

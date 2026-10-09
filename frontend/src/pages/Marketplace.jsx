@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { Search, AlertCircle, RefreshCw, ArrowLeft, X, SlidersHorizontal } from "lucide-react";
-import { api, CATEGORIES, money } from "@/lib/api";
+import { Search, RefreshCw, ArrowLeft, X, SlidersHorizontal } from "lucide-react";
+import { api, money } from "@/lib/api";
+import { useSite } from "@/lib/site";
+import { NoticeBox } from "@/components/admin/AdminSite";
 import { useAuth } from "@/context/AuthContext";
 import { ProductCard } from "@/components/ProductCard";
 import { FeaturedVendors } from "@/pages/Vendors";
@@ -11,6 +13,7 @@ const SORTS = [["new", "Newest"], ["popular", "Best sellers"], ["price_asc", "Pr
 
 export default function Marketplace() {
   const { user } = useAuth();
+  const { categories, notice } = useSite();
   const [params, setParams] = useSearchParams();
   const vendor = params.get("vendor") || "";
   const [items, setItems] = useState(null);
@@ -52,7 +55,7 @@ export default function Marketplace() {
       </div>
 
       <div className="no-scrollbar mb-5 flex gap-2 overflow-x-auto">
-        {["", ...CATEGORIES].map((c) => (
+        {["", ...categories].map((c) => (
           <button key={c || "all"} data-testid={`category-tab-${(c || "all").toLowerCase().replace(/ /g, "-")}`} onClick={() => setCat(c)}
             className={`whitespace-nowrap rounded-lg border px-4 py-2 text-sm font-semibold transition-colors ${cat === c ? "border-[#22C55E] bg-[#22C55E] text-[#0A0B0B]" : "border-[#272B29] bg-[#171A19] text-slate-400 hover:text-white"}`}>
             {c || "All"}
@@ -77,14 +80,7 @@ export default function Marketplace() {
         </div>
       )}
 
-      <div data-testid="sales-final-notice" className="mb-6 flex gap-3 rounded-2xl border border-[#FFB800]/30 bg-[#FFB800]/[0.06] p-4">
-        <AlertCircle size={20} className="mt-0.5 shrink-0 text-[#FFB800]" />
-        <div className="text-sm">
-          <div className="font-semibold text-[#FFB800]">All sales final</div>
-          <p className="text-slate-400">Keys are delivered instantly and are non-refundable. Disputes are reviewed by admin and resolved via wallet credit.</p>
-          <p className="mt-1 text-[#4ADE80]">Every key is reserved atomically — never sold twice.</p>
-        </div>
-      </div>
+      {notice?.enabled && <div className="mb-6"><NoticeBox n={notice} /></div>}
 
       {!vendor && !q && !cat && <FeaturedVendors />}
 

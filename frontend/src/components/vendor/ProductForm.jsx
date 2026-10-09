@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Upload, Check, X, KeyRound, FileText, Lock, Eye } from "lucide-react";
-import { api, errMsg, CATEGORIES, imgSrc } from "@/lib/api";
+import { api, errMsg, imgSrc } from "@/lib/api";
+import { useSite } from "@/lib/site";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export const DEFAULT_IMAGES = [
@@ -11,7 +12,7 @@ export const DEFAULT_IMAGES = [
   "https://images.unsplash.com/photo-1663811459413-e9de4614f88f?w=800&q=80",
   "https://images.unsplash.com/photo-1645395759348-a0dd7ccf1602?w=800&q=80",
 ];
-const blank = { title: "", description: "", category: CATEGORIES[0], price: "", image: "", tags: [], delivery_type: "keys", delivery_content: "" };
+const blank = { title: "", description: "", category: "", price: "", image: "", tags: [], delivery_type: "keys", delivery_content: "" };
 
 export function TagInput({ tags, onChange }) {
   const [t, setT] = useState("");
@@ -45,9 +46,10 @@ const Section = ({ icon: Icon, title, hint, children, color = "#4ADE80" }) => (
 export function ProductForm({ open, onOpenChange, product, onSaved }) {
   const [f, setF] = useState(blank);
   const [busy, setBusy] = useState(false);
+  const { categories: CATEGORIES } = useSite();
   useEffect(() => {
-    if (open) setF(product ? { ...blank, ...product, price: (product.vendor_price_cents ?? product.price_cents) / 100, image: product.image || "", tags: product.tags || [], delivery_type: product.delivery_type || "keys", delivery_content: product.delivery_content || "" } : blank);
-  }, [open, product]);
+    if (open) setF(product ? { ...blank, ...product, price: (product.vendor_price_cents ?? product.price_cents) / 100, image: product.image || "", tags: product.tags || [], delivery_type: product.delivery_type || "keys", delivery_content: product.delivery_content || "" } : { ...blank, category: CATEGORIES[0] || "" });
+  }, [open, product]); // eslint-disable-line react-hooks/exhaustive-deps
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
 
   const upload = async (e) => {

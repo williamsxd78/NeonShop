@@ -21,4 +21,3 @@ export const money = (c) => `$${((c || 0) / 100).toLocaleString("en-US", { minim
 export const imgSrc = (u) => (u && u.startsWith("/api/") ? `${BACKEND}${u}` : u);
 export const fmtDate = (s) => (s ? new Date(s).toLocaleString() : "-");
 export const COIN_LABEL = { BTC: "BTC", USDT_TRC20: "USDT · TRC20", LTC: "LTC", ETH: "ETH" };
-export const CATEGORIES = ["Software Licenses", "Templates", "Digital Assets", "Subscriptions", "Courses"];
