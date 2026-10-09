@@ -834,13 +834,11 @@ class TestBuyerFilters:
         assert counts == sorted(counts, reverse=True)
 
     def test_facets_single_value_hidden_when_only_one(self):
-        # 'Plan: Pro' appears >1 so Plan should show if it has >=1 unique value with count>1 (per code).
+        # Single-value keys (Plan: Pro only) are hidden; filters need >=2 options
         r = requests.get(f"{API}/products/facets", params={"category": "Subscriptions"})
         data = {f["key"]: f for f in r.json()}
-        # Plan has one unique value ('Pro') but total count is 4 so condition `len==1 and sum>1` keeps it
-        assert "Plan" in data
-        plan_vals = {v["value"]: v["count"] for v in data["Plan"]["values"]}
-        assert plan_vals.get("Pro", 0) >= 4
+        assert "Plan" not in data
+        assert "Region" in data
 
     def test_attrs_filter_eu(self):
         r = requests.get(f"{API}/products", params={"attrs": _json.dumps({"Region": "EU"})})
@@ -875,6 +873,174 @@ class TestBuyerFilters:
         full = requests.get(f"{API}/products").json()
         assert len(r.json()) == len(full)
 
+
+# ---------- Iteration 5: /site + /admin/site (notice & categories) ----------
+DEFAULT_CATS = ["Software Licenses", "Templates", "Digital Assets", "Subscriptions", "Courses"]
+DEFAULT_NOTICE = {
+    "enabled": True, "tone": "amber", "title": "All sales final",
+    "body": "Keys are delivered instantly and are non-refundable. Disputes are reviewed by admin and resolved via wallet credit.",
+    "highlight": "Every key is reserved atomically — never sold twice.",
+}
+
+
+def _cat_payload(names):
+    return [{"name": n, "original": n} for n in names]
+
+
+def _restore_site(atok):
+    requests.put(f"{API}/admin/site", headers=_h(atok), json={
+        "notice": DEFAULT_NOTICE,
+        "categories": _cat_payload(DEFAULT_CATS),
+    })
+
+
+class TestSitePublic:
+    def test_site_public_shape(self):
+        r = requests.get(f"{API}/site")
+        assert r.status_code == 200
+        d = r.json()
+        assert "categories" in d and "notice" in d
+        assert isinstance(d["categories"], list) and len(d["categories"]) >= 1
+        n = d["notice"]
+        for k in ("enabled", "tone", "title", "body", "highlight"):
+            assert k in n
+
+    def test_site_matches_categories_endpoint(self):
+        s = requests.get(f"{API}/site").json()
+        c = requests.get(f"{API}/categories").json()
+        assert s["categories"] == c
+
+
+class TestAdminSite:
+    @classmethod
+    def setup_class(cls):
+        cls.atok = _login(*ADMIN)
+        cls.btok = _login(*BUYER)
+        cls.vtok = _login(*VENDOR)
+
+    @classmethod
+    def teardown_class(cls):
+        _restore_site(cls.atok)
+
+    def test_admin_site_requires_admin(self):
+        r = requests.put(f"{API}/admin/site", headers=_h(self.btok),
+                         json={"notice": DEFAULT_NOTICE})
+        assert r.status_code == 403
+
+    def test_update_notice_and_disable(self):
+        new_notice = {"enabled": True, "tone": "green", "title": "TEST notice",
+                      "body": "Body here", "highlight": "Highlight here"}
+        r = requests.put(f"{API}/admin/site", headers=_h(self.atok), json={"notice": new_notice})
+        assert r.status_code == 200
+        s = requests.get(f"{API}/site").json()
+        assert s["notice"]["title"] == "TEST notice"
+        assert s["notice"]["tone"] == "green"
+        assert s["notice"]["enabled"] is True
+        # Disable
+        off = {**new_notice, "enabled": False}
+        r = requests.put(f"{API}/admin/site", headers=_h(self.atok), json={"notice": off})
+        assert r.status_code == 200
+        assert requests.get(f"{API}/site").json()["notice"]["enabled"] is False
+
+    def test_duplicate_category_names_400(self):
+        bad = [{"name": "Software Licenses", "original": "Software Licenses"},
+               {"name": "software licenses", "original": "Templates"}]
+        r = requests.put(f"{API}/admin/site", headers=_h(self.atok), json={"categories": bad})
+        assert r.status_code == 400
+        assert "unique" in r.text.lower() or "empty" in r.text.lower()
+
+    def test_empty_category_name_400(self):
+        bad = [{"name": "   ", "original": "Software Licenses"}] + [
+            {"name": n, "original": n} for n in DEFAULT_CATS[1:]
+        ]
+        r = requests.put(f"{API}/admin/site", headers=_h(self.atok), json={"categories": bad})
+        assert r.status_code == 400
+
+    def test_rename_moves_products(self):
+        # Rename "Courses" -> "TEST_Courses_X"
+        new_name = f"TEST_Courses_{secrets.token_hex(2)}"
+        payload = []
+        for n in DEFAULT_CATS:
+            if n == "Courses":
+                payload.append({"name": new_name, "original": "Courses"})
+            else:
+                payload.append({"name": n, "original": n})
+        r = requests.put(f"{API}/admin/site", headers=_h(self.atok), json={"categories": payload})
+        assert r.status_code == 200
+        assert new_name in r.json()["categories"]
+        # Products previously in Courses now searchable under new name
+        prods = requests.get(f"{API}/products", params={"category": new_name}).json()
+        assert all(p["category"] == new_name for p in prods)
+        # Old name has no products
+        old = requests.get(f"{API}/products", params={"category": "Courses"}).json()
+        assert len(old) == 0
+        # Rename back
+        rev = []
+        for n in r.json()["categories"]:
+            if n == new_name:
+                rev.append({"name": "Courses", "original": new_name})
+            else:
+                rev.append({"name": n, "original": n})
+        r2 = requests.put(f"{API}/admin/site", headers=_h(self.atok), json={"categories": rev})
+        assert r2.status_code == 200
+        assert "Courses" in r2.json()["categories"]
+
+    def test_remove_category_with_products_400(self):
+        # Try removing "Software Licenses" (should have seed products)
+        kept = [{"name": n, "original": n} for n in DEFAULT_CATS if n != "Software Licenses"]
+        r = requests.put(f"{API}/admin/site", headers=_h(self.atok), json={"categories": kept})
+        assert r.status_code == 400, r.text
+        assert "Software Licenses" in r.text
+        # Nothing changed
+        assert requests.get(f"{API}/categories").json() == DEFAULT_CATS
+
+    def test_add_and_remove_empty_category(self):
+        new_cat = f"TEST_Cat_{secrets.token_hex(2)}"
+        payload = _cat_payload(DEFAULT_CATS) + [{"name": new_cat, "original": None}]
+        r = requests.put(f"{API}/admin/site", headers=_h(self.atok), json={"categories": payload})
+        assert r.status_code == 200
+        assert new_cat in r.json()["categories"]
+        # Now remove it (empty, so allowed)
+        r2 = requests.put(f"{API}/admin/site", headers=_h(self.atok),
+                          json={"categories": _cat_payload(DEFAULT_CATS)})
+        assert r2.status_code == 200
+        assert new_cat not in r2.json()["categories"]
+
+    def test_vendor_create_in_new_category(self):
+        new_cat = f"TEST_NewCat_{secrets.token_hex(2)}"
+        payload = _cat_payload(DEFAULT_CATS) + [{"name": new_cat, "original": None}]
+        r = requests.put(f"{API}/admin/site", headers=_h(self.atok), json={"categories": payload})
+        assert r.status_code == 200
+        # Vendor creates product in this new cat
+        rp = requests.post(f"{API}/vendor/products", headers=_h(self.vtok), json={
+            "title": f"TEST_InNewCat_{secrets.token_hex(3)}", "description": "x",
+            "category": new_cat, "price": 1.0,
+        })
+        assert rp.status_code == 200, rp.text
+        pid = rp.json()["id"]
+        # Vendor delete
+        requests.delete(f"{API}/vendor/products/{pid}", headers=_h(self.vtok))
+        # Remove the new category (should be empty now)
+        r2 = requests.put(f"{API}/admin/site", headers=_h(self.atok),
+                          json={"categories": _cat_payload(DEFAULT_CATS)})
+        assert r2.status_code == 200
+
+    def test_vendor_unknown_category_400(self):
+        r = requests.post(f"{API}/vendor/products", headers=_h(self.vtok), json={
+            "title": f"TEST_UnknownCat_{secrets.token_hex(3)}", "description": "x",
+            "category": "NoSuchCategoryXYZ", "price": 1.0,
+        })
+        assert r.status_code == 400
+        assert "category" in r.text.lower()
+
+    def test_bulk_import_unknown_category_400(self):
+        r = requests.post(f"{API}/vendor/products/bulk", headers=_h(self.vtok), json={
+            "text": "Title: a\nKey: k1", "separator": "blank", "public_lines": [0],
+            "title_line": 0, "deliver": "all",
+            "category": "NoSuchCategoryXYZ", "price": 1.0,
+        })
+        assert r.status_code == 400
+    
     def test_facets_respects_category(self):
         r = requests.get(f"{API}/products/facets", params={"category": "Templates"})
         assert r.status_code == 200

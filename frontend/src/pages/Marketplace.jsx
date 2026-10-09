@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { Search, RefreshCw, ArrowLeft, X, SlidersHorizontal } from "lucide-react";
 import { api, money } from "@/lib/api";
 import { useSite } from "@/lib/site";
-import { NoticeBox } from "@/components/admin/AdminSite";
+import { NoticeBox } from "@/components/NoticeBox";
 import { useAuth } from "@/context/AuthContext";
 import { ProductCard } from "@/components/ProductCard";
 import { FeaturedVendors } from "@/pages/Vendors";

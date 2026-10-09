@@ -52,3 +52,8 @@ Multi-vendor, wallet-based B2B marketplace for digital goods (license keys/codes
 
 ## Iteration 5 (2026-06)
 - Slimmer UI site-wide: root font-size 14px (all rem sizing ~12% smaller), lighter weights (bold->600, semibold->500), smaller page titles, prices and the account menu
+
+## Iteration 6 (2026-06)
+- Admin "Shop notice & categories" section: edit the shop notice (show/hide, color tone, title, message, highlight line, live preview) and manage categories (add, rename which moves existing products, reorder, remove only when unused)
+- Categories are now dynamic (settings.categories) and used by the shop tabs, product form and bulk import; GET /api/site, PUT /api/admin/site
+- Tested: 100% of backend + frontend checks for this feature (iteration_5)

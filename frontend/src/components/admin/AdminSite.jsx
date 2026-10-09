@@ -1,30 +1,10 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ArrowUp, ArrowDown, Trash2, Plus, AlertCircle } from "lucide-react";
+import { ArrowUp, ArrowDown, Trash2, Plus } from "lucide-react";
+import { TONES, NoticeBox } from "@/components/NoticeBox";
 import { api, errMsg } from "@/lib/api";
 import { reloadSite } from "@/lib/site";
 import { Switch } from "@/components/ui/switch";
-
-export const TONES = {
-  amber: { c: "#FFB800", bg: "rgba(255,184,0,0.06)", b: "rgba(255,184,0,0.3)" },
-  green: { c: "#4ADE80", bg: "rgba(34,197,94,0.06)", b: "rgba(34,197,94,0.3)" },
-  cyan: { c: "#22D3EE", bg: "rgba(34,211,238,0.06)", b: "rgba(34,211,238,0.3)" },
-  red: { c: "#FF2A5F", bg: "rgba(255,42,95,0.06)", b: "rgba(255,42,95,0.3)" },
-};
-
-export const NoticeBox = ({ n, testId = "sales-final-notice" }) => {
-  const t = TONES[n.tone] || TONES.amber;
-  return (
-    <div data-testid={testId} className="flex gap-3 rounded-2xl border p-4" style={{ borderColor: t.b, background: t.bg }}>
-      <AlertCircle size={18} className="mt-0.5 shrink-0" style={{ color: t.c }} />
-      <div className="text-sm">
-        {n.title && <div className="font-semibold" style={{ color: t.c }}>{n.title}</div>}
-        {n.body && <p className="whitespace-pre-line text-slate-400">{n.body}</p>}
-        {n.highlight && <p className="mt-1 text-[#4ADE80]">{n.highlight}</p>}
-      </div>
-    </div>
-  );
-};
 
 function NoticeEditor({ initial }) {
   const [n, setN] = useState(initial);
@@ -65,7 +45,11 @@ function CategoryEditor({ initial }) {
       const s = await api.put("/admin/site", { categories: list });
       setList(s.data.categories.map((c) => ({ name: c, original: c })));
       await reloadSite(); toast.success("Categories saved");
-    } catch (e) { toast.error(errMsg(e)); } finally { setBusy(false); }
+    } catch (e) {
+      toast.error(errMsg(e));
+      const d = await reloadSite();
+      setList(d.categories.map((c) => ({ name: c, original: c })));
+    } finally { setBusy(false); }
   };
   const addOne = () => { if (add.trim()) { setList([...list, { name: add.trim(), original: null }]); setAdd(""); } };
   return (

@@ -1,0 +1,38 @@
+{
+  "summary": "Iteration-5 tested the new 'Shop notice & categories' admin feature (GET /api/site public, PUT /api/admin/site admin-only, SiteIn/NoticeIn/CategoryIn schemas) end-to-end. Backend: added 13 pytest cases to backend_test.py (TestSitePublic + TestAdminSite) covering: /site public shape and parity with /categories; admin-only PUT (buyer -> 403); notice update (title/tone/body/highlight) + disable round-trip; duplicate category names -> 400; empty category name -> 400; rename moves products (products previously in 'Courses' are reachable under the renamed category, and old name returns empty) and rename-back works; remove-category-with-products -> 400 with Mongo-counted message; add + remove empty category; vendor_create_product in a newly added category works, and admin can then remove it after cleanup; vendor POST /vendor/products with unknown category -> 400; POST /vendor/products/bulk with unknown category -> 400. All 13 new tests pass. Teardown restores default notice {amber, 'All sales final', ...} and the canonical 5-category order ['Software Licenses','Templates','Digital Assets','Subscriptions','Courses']. Verified post-run via curl GET /api/site. Frontend (Playwright, viewport 1440x900): admin-tab-site renders admin-notice-editor + admin-category-editor; notice-tone-green button + notice-title/body-input + notice-save-btn => shop page shows updated sales-final-notice; notice-enabled-switch off => notice disappears from shop; category-add-input/category-add-btn + category-save-btn adds TEST_PWCat which shows up as category-tab-test_pwcat on /; category-remove-<i> + category-save-btn removes it; attempting to remove 'Software Licenses' (which has 2 seed products) surfaces the backend error toast \"'Software Licenses' has 2 product(s). Rename it or move/delete those products first.\" (and 'Categories saved' toast from previous click still visible — see UX nit below). Default notice + categories were restored at test end. The 2 existing TestBuyerFilters failures observed in the full-suite run are pre-existing (not caused by iter-5 changes) — see 'rca' section.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/products/facets", "issue": "server.py line 297 only keeps facets with 2<=len(vals)<=40, but iteration-4 test comment and TestBuyerFilters::test_facets_single_value_hidden_when_only_one expect single-value facets with sum>1 to still be returned (Plan: Pro). Either amend the test or extend the facet filter with `or (len(vals)==1 and sum(vals.values())>1)`. Pre-existing from iter-4."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "AdminSite CategoryEditor", "issue": "When PUT /admin/site returns 400 (e.g. removing a category that still has products), the local list state keeps the user's optimistic deletion so the UI stops showing 'Software Licenses' until page refresh — backend DB is correct. On error, the editor should re-sync via reloadSite() instead of leaving the stale optimistic state.", "selector": "admin-category-editor", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/backend_test.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "LOW: In AdminSite.jsx CategoryEditor.save, on toast.error also await reloadSite() and re-seed `list` from server to avoid optimistic-state drift after 400 responses.",
+    "LOW: Decide whether /products/facets should include single-value keys (align either the code or TestBuyerFilters::test_facets_single_value_hidden_when_only_one)."
+  ],
+  "critical_code_review_comments": [
+    "server.py admin_update_site: delete-check (`for old in s['categories']: if old not in kept: count products with that category`) uses the pre-save category list from Mongo for product count — correct. Does not consider orders table, which still carries 'category' (updated by rename too). OK.",
+    "server.py admin_update_site rename: for every renamed category, runs db.products.update_many and db.orders.update_many sequentially — fine for current scale; if categories list is reordered via drag/add/remove, DB only stores names (order preserved by python list). Good.",
+    "SiteIn: `categories` has min_length=1 — admin cannot wipe all categories. Good guard.",
+    "NoticeIn.tone Literal is enforced to amber|green|cyan|red — invalid value => 422 (verified not required by prompt, assumed by Pydantic).",
+    "AdminSite.jsx NoticeEditor stores `initial` once; after save it does NOT refresh the local `n` from the server echo. Not a bug (values are strings and tone round-trips), but inconsistent with CategoryEditor which does setList from response.",
+    "DEFAULT_NOTICE/CATEGORIES fallback is applied inside get_settings — upgrade-safe for existing DBs without the fields.",
+    "Marketplace.jsx: notice is rendered via `NoticeBox` imported from admin/AdminSite — mild cross-coupling (admin module imported by shop). Consider moving NoticeBox + TONES to a shared file."
+  ],
+  "updated_files": ["/app/backend/tests/backend_test.py"],
+  "success_rate": {"backend": "100% new (13/13), 62/64 overall (2 pre-existing iter-4 failures)", "frontend": "100% (all iter-5 flows verified via Playwright)"},
+  "test_credentials": "admin@market.com/Admin@123, buyer@market.com/Buyer@123, vendor@market.com/Vendor@123 (math captcha via GET /api/auth/captcha)",
+  "seed_data_creation": "TestAdminSite temporarily creates/removes 'TEST_Cat_*', 'TEST_NewCat_*', 'TEST_Courses_*' categories; vendor product in new category is created & deleted inline; teardown_class restores the exact default 5 categories + default amber notice. Playwright test added+removed TEST_PWCat. Verified via curl at end: /api/site returns default state.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Iter-5 endpoints: GET /api/site -> {categories: [str], notice: {enabled,tone,title,body,highlight}}. PUT /api/admin/site accepts {notice?, categories? [{name, original?}]}. Testids: admin-tab-site, admin-notice-editor, notice-enabled-switch, notice-tone-amber|green|cyan|red, notice-title-input, notice-body-input, notice-highlight-input, notice-preview, notice-save-btn, admin-category-editor, category-name-<i>, category-up-<i>, category-down-<i>, category-remove-<i>, category-add-input, category-add-btn, category-save-btn, category-row-<i>. Shop: sales-final-notice, category-tab-<slug (lower, spaces->hyphens)>. ProductForm uses useSite() so pf-category-select auto-reflects admin changes; BulkImport bulk-category same. Known pre-existing TestBuyerFilters failures (iter-4) not addressed here. Captcha UI testid is login-captcha-question/input (sr-only span under canvas), submit button is login-submit-button.",
+  "rca of the issue": "The 2 full-suite failures (TestBuyerFilters::test_facets_single_value_hidden_when_only_one and test_attrs_empty_dict_ignored) are both pre-existing from iter-4: (a) the facets filter in server.py (line 297) is `2 <= len(vals) <= 40`, which drops single-value keys even when sum>1, contradicting the iter-4 report's expectation that Plan=Pro(count 4) stays — the test is inconsistent with the current code; (b) empty-attrs-dict length comparison races with leftover TEST_V2 Store products from iter-4 teardown gaps (a Subscriptions-category product remained). Both are unrelated to iter-5 and were not reported by main agent as issues to fix."
+}
