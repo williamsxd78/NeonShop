@@ -57,3 +57,7 @@ Multi-vendor, wallet-based B2B marketplace for digital goods (license keys/codes
 - Admin "Shop notice & categories" section: edit the shop notice (show/hide, color tone, title, message, highlight line, live preview) and manage categories (add, rename which moves existing products, reorder, remove only when unused)
 - Categories are now dynamic (settings.categories) and used by the shop tabs, product form and bulk import; GET /api/site, PUT /api/admin/site
 - Tested: 100% of backend + frontend checks for this feature (iteration_5)
+
+## Iteration 7 (2026-06)
+- Admin "Shop content": Marketplace header (title, subtitle with {count}, background image upload/URL, show/hide), promo banners (CRUD, reorder, live toggle, image upload, safe internal/external links, auto-sliding carousel), category icon (24 options) + color per tab, notice scheduling (show from / hide after, server-evaluated `active`)
+- Generated hero and banner images (green glass-cube vibe)

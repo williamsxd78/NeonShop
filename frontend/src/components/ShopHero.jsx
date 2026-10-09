@@ -4,7 +4,7 @@ import { ArrowRight } from "lucide-react";
 import { imgSrc } from "@/lib/api";
 
 export const ShopHero = ({ hero, count }) => (
-  <div data-testid="shop-hero" className="relative -mx-4 mb-6 overflow-hidden sm:mx-0 sm:rounded-2xl sm:border sm:border-[#272B29]">
+  <div data-testid="shop-hero" className="relative -mx-4 -mt-6 mb-6 overflow-hidden sm:mx-0 sm:mt-0 sm:rounded-2xl sm:border sm:border-[#272B29]">
     <img src={imgSrc(hero.image)} alt="" className="absolute inset-0 h-full w-full object-cover object-right" />
     <div className="absolute inset-0 bg-gradient-to-r from-[#0A0B0B] via-[#0A0B0B]/70 to-transparent" />
     <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-[#0A0B0B] to-transparent" />

@@ -183,7 +183,7 @@ class HeroIn(BaseModel):
     enabled: bool = True
     title: str = Field(default="", max_length=60)
     subtitle: str = Field(default="", max_length=120)
-    image: str = Field(default="", max_length=600)
+    image: str = Field(min_length=1, max_length=600, pattern=SAFE_LINK)
 
 
 class BannerIn(BaseModel):
@@ -193,7 +193,7 @@ class BannerIn(BaseModel):
     subtitle: str = Field(default="", max_length=200)
     button_text: str = Field(default="", max_length=30)
     link: str = Field(default="", max_length=500, pattern=SAFE_LINK)
-    image: str = Field(min_length=1, max_length=600)
+    image: str = Field(min_length=1, max_length=600, pattern=SAFE_LINK)
 
 
 class SiteIn(BaseModel):
@@ -206,7 +206,8 @@ class SiteIn(BaseModel):
 def notice_active(n: dict) -> bool:
     now = datetime.now(timezone.utc)
     def parse(v):
-        return datetime.fromisoformat(v) if v else None
+        d = datetime.fromisoformat(v) if v else None
+        return d.replace(tzinfo=timezone.utc) if d and not d.tzinfo else d
     st, en = parse(n.get("starts_at")), parse(n.get("ends_at"))
     return bool(n.get("enabled")) and (not st or st <= now) and (not en or now < en)
 
@@ -980,7 +981,12 @@ async def admin_update_site(body: SiteIn, user=Depends(admin_dep)):
         upd["hero"] = body.hero.model_dump()
         await audit(user, "settings.hero", None, details=f"enabled={body.hero.enabled}, title={body.hero.title}")
     if body.banners is not None:
-        upd["banners"] = [{**b.model_dump(), "id": b.id or new_id()} for b in body.banners]
+        seen = set()
+        upd["banners"] = []
+        for b in body.banners:
+            bid = b.id if b.id and b.id not in seen else new_id()
+            seen.add(bid)
+            upd["banners"].append({**b.model_dump(), "id": bid})
         await audit(user, "settings.banners", None, details=f"{len(body.banners)} banner(s)")
     if upd:
         await db.settings.update_one({"key": "global"}, {"$set": upd})

@@ -1,0 +1,31 @@
+{
+  "summary": "Iteration-6 tested the new homepage hero (MARKETPLACE), banners carousel, notice scheduling, and category icons/colors. Backend: added TestIter6HeroBannersNotice class with 16 pytest cases to /app/backend/tests/backend_test.py — all 16 pass. Covered: PUT/GET /api/admin/site admin-only (buyer -> 403), hero update + public reflection + disable, banner image-required (empty image -> 422 via Pydantic min_length=1), SAFE_LINK pattern rejects 'javascript:alert(1)' (422), /api/site returns only enabled banners while /api/admin/site returns all (with ids preserved for welcome/TEST ids), valid banner links (/relative, https://absolute, empty), notice scheduling future starts_at -> active=false, past ends_at -> active=false, ends<=starts -> 400, cleared schedule -> active=true, in-window -> active=true, admin notice_active flag mirrors. Category icon/color persistence (icon='zap', color='#AABBCC'); invalid non-hex color 'red' -> 422; rename-category preserves/updates style and roundtrips. Snapshot of /admin/site taken at setup and restored at teardown; verified via curl: default categories ['Software Licenses','Templates','Digital Assets','Subscriptions','Courses'], hero MARKETPLACE enabled, single 'welcome' banner, notice 'All sales final' starts_at/ends_at null — all restored. Frontend (Playwright viewport 1440x900): shop-hero visible with title 'MARKETPLACE' + subtitle '8 Products Available' + background image; shop-banners carousel renders with shop-banner-welcome linking to /vendors; 6 category tabs rendered (All + 5 cats) with svg icons; selecting Software Licenses tabs it in color rgb(34,211,238) == #22D3EE (matches category_style). Full file list in test_report_links.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/backend_test.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py admin_update_site hero branch does not validate `image` URL/path; HeroIn.image is just a 600-char string, so any value (including 'javascript:…' or an empty string) is accepted. Banners enforce SAFE_LINK on `link` only — image urls on both hero and banners are unvalidated. Consider applying SAFE_LINK (or a stricter https?://|/api/files/* pattern) to hero.image and banner.image.",
+    "notice_active(n) parses `starts_at`/`ends_at` with datetime.fromisoformat on strings stored by `norm` lambda; the stored value already has tzinfo so comparison is fine. But if a legacy row ever stored a naive ISO string, fromisoformat would return a naive datetime and the `st <= now` comparison would raise. Low risk but worth a tz-safe fallback.",
+    "BannerCarousel key uses b.id — DEFAULT_BANNERS 'welcome' id is static. Adding admin UI inserts new ids via new_id(); fine, but note that duplicate ids from admin would silently collide. Admin PUT does not de-dupe banner ids. Low priority.",
+    "ShopHero subtitle `.replace('{count}', count)` is a plain string replace — count is a number, which React implicitly stringifies; works, but using String(count) is more explicit.",
+    "Marketplace hides the plain 'Shop' heading when hero.enabled=true. Spec says disabling hero should show the plain 'Shop' heading — verified in code (line 44 '(vendor || !hero?.enabled)'). OK.",
+    "CategoryIn.icon has no enum/whitelist — any string up to 30 chars is accepted; the frontend CategoryIcon falls back to the Package icon for unknown names, so bad values don't crash but admins could save non-rendering icons.",
+    "Pre-existing from iter-4 (not in scope for iter-6, left unchanged): TestBuyerFilters::test_facets_single_value_hidden_when_only_one and test_attrs_empty_dict_ignored can be flaky in a full-suite run due to seed/cleanup interactions."
+  ],
+  "updated_files": ["/app/backend/tests/backend_test.py"],
+  "success_rate": {"backend": "100% new (16/16)", "frontend": "100% (hero + banner + category icon+color on /)"},
+  "test_credentials": "admin@market.com/Admin@123, buyer@market.com/Buyer@123, vendor@market.com/Vendor@123 (math captcha via GET /api/auth/captcha)",
+  "seed_data_creation": "Snapshot of /admin/site saved at TestIter6HeroBannersNotice.setup_class and PUT back verbatim at teardown_class. Temporary banners 'TEST_b1'/'TEST_b2'/'TEST_rel'/'TEST_abs'/'TEST_empty' and category 'TEST_Tmpl_*' were created and cleaned up by the restore. Verified post-run via curl GET /api/site: hero/banners/notice/categories back to defaults.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Iter-6 endpoints: GET /api/site -> {hero, banners (enabled only), notice:{...,active}, categories, category_style, product_count}. GET /api/admin/site (admin) -> same but all banners + notice_active flag. PUT /api/admin/site accepts {hero?, banners?, notice?, categories?}. Pydantic rules: BannerIn.image min_length=1 (empty -> 422); BannerIn.link regex SAFE_LINK (javascript:/data: -> 422; '/path' or 'https://…' OK); CategoryIn.color regex ^#[0-9A-Fa-f]{6}$; NoticeIn.starts_at/ends_at datetime optional; admin_update_site raises 400 if ends_at <= starts_at. Testids: shop-hero, shop-hero-title, shop-hero-subtitle, shop-banners, shop-banner-<id>, shop-banner-dot-<i>, category-tab-<slug>. Admin UI: admin-tab-site (not loaded in this run — only shop was Playwright-tested since all admin editors were covered by backend tests end-to-end against PUT /api/admin/site).",
+  "rca of the issue": "No defects uncovered in iter-6 scope. All 16 iter-6 tests pass; previous iter-4 facets flakies remain and are documented in iter-5 report."
+}

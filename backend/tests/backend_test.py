@@ -1052,3 +1052,206 @@ class TestAdminSite:
             # Just assert the response shape.
             assert all("value" in v and "count" in v for v in data["Region"]["values"])
 
+
+
+# ---------- Iteration 6: hero, banners, notice scheduling, category icons/colors ----------
+from datetime import datetime, timezone, timedelta
+
+
+def _snapshot_site(atok):
+    r = requests.get(f"{API}/admin/site", headers=_h(atok))
+    assert r.status_code == 200
+    s = r.json()
+    return {
+        "notice": {k: s["notice"][k] for k in ("enabled", "tone", "title", "body", "highlight", "starts_at", "ends_at")},
+        "hero": s["hero"],
+        "banners": s["banners"],
+        "categories": [{"name": c, "original": c, "icon": s["category_style"][c]["icon"],
+                        "color": s["category_style"][c]["color"]} for c in s["categories"]],
+    }
+
+
+def _restore_full(atok, snap):
+    # Normalize notice datetimes which came back as ISO strings
+    r = requests.put(f"{API}/admin/site", headers=_h(atok), json=snap)
+    assert r.status_code == 200, r.text
+
+
+class TestIter6HeroBannersNotice:
+    @classmethod
+    def setup_class(cls):
+        cls.atok = _login(*ADMIN)
+        cls.btok = _login(*BUYER)
+        cls.snap = _snapshot_site(cls.atok)
+
+    @classmethod
+    def teardown_class(cls):
+        _restore_full(cls.atok, cls.snap)
+
+    # ----- Admin-only guard -----
+    def test_put_site_admin_only(self):
+        r = requests.put(f"{API}/admin/site", headers=_h(self.btok), json={"hero": self.snap["hero"]})
+        assert r.status_code == 403
+
+    def test_get_admin_site_admin_only(self):
+        r = requests.get(f"{API}/admin/site", headers=_h(self.btok))
+        assert r.status_code == 403
+
+    # ----- Hero -----
+    def test_hero_update_and_reflect(self):
+        new_hero = {"enabled": True, "title": "TEST_MARKET", "subtitle": "Hello {count}", "image": "https://example.com/x.png"}
+        r = requests.put(f"{API}/admin/site", headers=_h(self.atok), json={"hero": new_hero})
+        assert r.status_code == 200, r.text
+        pub = requests.get(f"{API}/site").json()
+        assert pub["hero"]["title"] == "TEST_MARKET"
+        assert pub["hero"]["subtitle"] == "Hello {count}"
+        assert pub["hero"]["enabled"] is True
+        assert isinstance(pub["product_count"], int)
+
+    def test_hero_disable(self):
+        off = {**self.snap["hero"], "enabled": False}
+        r = requests.put(f"{API}/admin/site", headers=_h(self.atok), json={"hero": off})
+        assert r.status_code == 200
+        pub = requests.get(f"{API}/site").json()
+        assert pub["hero"]["enabled"] is False
+
+    # ----- Banners -----
+    def test_banner_without_image_422(self):
+        bad = [{"enabled": True, "title": "x", "subtitle": "y", "button_text": "", "link": "/vendors", "image": ""}]
+        r = requests.put(f"{API}/admin/site", headers=_h(self.atok), json={"banners": bad})
+        assert r.status_code == 422, r.text
+
+    def test_banner_bad_link_422(self):
+        bad = [{"enabled": True, "title": "x", "subtitle": "y", "button_text": "", "link": "javascript:alert(1)",
+                "image": "https://example.com/b.png"}]
+        r = requests.put(f"{API}/admin/site", headers=_h(self.atok), json={"banners": bad})
+        assert r.status_code == 422
+
+    def test_banners_enabled_filter_public_vs_admin(self):
+        banners = [
+            {"id": "TEST_b1", "enabled": True, "title": "TEST_on", "subtitle": "", "button_text": "", "link": "/vendors",
+             "image": "https://example.com/a.png"},
+            {"id": "TEST_b2", "enabled": False, "title": "TEST_off", "subtitle": "", "button_text": "", "link": "",
+             "image": "https://example.com/b.png"},
+        ]
+        r = requests.put(f"{API}/admin/site", headers=_h(self.atok), json={"banners": banners})
+        assert r.status_code == 200, r.text
+        pub = requests.get(f"{API}/site").json()
+        titles_pub = [b["title"] for b in pub["banners"]]
+        assert "TEST_on" in titles_pub
+        assert "TEST_off" not in titles_pub
+        # Admin sees all
+        adm = requests.get(f"{API}/admin/site", headers=_h(self.atok)).json()
+        titles_adm = [b["title"] for b in adm["banners"]]
+        assert "TEST_on" in titles_adm and "TEST_off" in titles_adm
+        # IDs preserved
+        ids = {b["id"] for b in adm["banners"]}
+        assert "TEST_b1" in ids and "TEST_b2" in ids
+
+    def test_banner_valid_links_accepted(self):
+        banners = [
+            {"id": "TEST_rel", "enabled": True, "title": "r", "subtitle": "", "button_text": "", "link": "/vendors",
+             "image": "https://example.com/a.png"},
+            {"id": "TEST_abs", "enabled": True, "title": "a", "subtitle": "", "button_text": "", "link": "https://example.com/p",
+             "image": "https://example.com/b.png"},
+            {"id": "TEST_empty", "enabled": True, "title": "e", "subtitle": "", "button_text": "", "link": "",
+             "image": "https://example.com/c.png"},
+        ]
+        r = requests.put(f"{API}/admin/site", headers=_h(self.atok), json={"banners": banners})
+        assert r.status_code == 200, r.text
+
+    # ----- Notice scheduling -----
+    def test_notice_future_starts_hidden(self):
+        future = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
+        n = {"enabled": True, "tone": "amber", "title": "future", "body": "b", "highlight": "",
+             "starts_at": future, "ends_at": None}
+        r = requests.put(f"{API}/admin/site", headers=_h(self.atok), json={"notice": n})
+        assert r.status_code == 200
+        pub = requests.get(f"{API}/site").json()
+        assert pub["notice"]["active"] is False
+        # Admin snapshot shows notice_active flag false
+        adm = requests.get(f"{API}/admin/site", headers=_h(self.atok)).json()
+        assert adm.get("notice_active") is False
+
+    def test_notice_past_ends_hidden(self):
+        past_start = (datetime.now(timezone.utc) - timedelta(days=2)).isoformat()
+        past_end = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
+        n = {"enabled": True, "tone": "amber", "title": "past", "body": "b", "highlight": "",
+             "starts_at": past_start, "ends_at": past_end}
+        r = requests.put(f"{API}/admin/site", headers=_h(self.atok), json={"notice": n})
+        assert r.status_code == 200
+        pub = requests.get(f"{API}/site").json()
+        assert pub["notice"]["active"] is False
+
+    def test_notice_ends_before_starts_400(self):
+        start = (datetime.now(timezone.utc) + timedelta(days=2)).isoformat()
+        end = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
+        n = {"enabled": True, "tone": "amber", "title": "bad", "body": "b", "highlight": "",
+             "starts_at": start, "ends_at": end}
+        r = requests.put(f"{API}/admin/site", headers=_h(self.atok), json={"notice": n})
+        assert r.status_code == 400
+        assert "end" in r.text.lower() or "start" in r.text.lower()
+
+    def test_notice_cleared_schedule_visible(self):
+        n = {"enabled": True, "tone": "amber", "title": "live", "body": "b", "highlight": "h",
+             "starts_at": None, "ends_at": None}
+        r = requests.put(f"{API}/admin/site", headers=_h(self.atok), json={"notice": n})
+        assert r.status_code == 200
+        pub = requests.get(f"{API}/site").json()
+        assert pub["notice"]["active"] is True
+        assert pub["notice"]["title"] == "live"
+
+    def test_notice_in_window_active(self):
+        start = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
+        end = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+        n = {"enabled": True, "tone": "cyan", "title": "window", "body": "b", "highlight": "",
+             "starts_at": start, "ends_at": end}
+        r = requests.put(f"{API}/admin/site", headers=_h(self.atok), json={"notice": n})
+        assert r.status_code == 200
+        pub = requests.get(f"{API}/site").json()
+        assert pub["notice"]["active"] is True
+
+    # ----- Category icons & colors -----
+    def test_category_icon_color_persistence(self):
+        cats = [{"name": c["name"], "original": c["name"], "icon": c["icon"], "color": c["color"]}
+                for c in self.snap["categories"]]
+        cats[0] = {**cats[0], "icon": "zap", "color": "#AABBCC"}
+        r = requests.put(f"{API}/admin/site", headers=_h(self.atok), json={"categories": cats})
+        assert r.status_code == 200, r.text
+        pub = requests.get(f"{API}/site").json()
+        style = pub["category_style"][cats[0]["name"]]
+        assert style["icon"] == "zap"
+        assert style["color"].upper() == "#AABBCC"
+
+    def test_category_invalid_color_422(self):
+        cats = [{"name": c["name"], "original": c["name"], "icon": c["icon"], "color": c["color"]}
+                for c in self.snap["categories"]]
+        cats[0] = {**cats[0], "color": "red"}  # not hex
+        r = requests.put(f"{API}/admin/site", headers=_h(self.atok), json={"categories": cats})
+        assert r.status_code == 422
+
+    def test_category_rename_preserves_style(self):
+        # Rename "Templates" -> TEST_Tmpl_* with new icon/color then rename back
+        new_name = f"TEST_Tmpl_{secrets.token_hex(2)}"
+        cats = []
+        for c in self.snap["categories"]:
+            if c["name"] == "Templates":
+                cats.append({"name": new_name, "original": "Templates", "icon": "gift", "color": "#123456"})
+            else:
+                cats.append({"name": c["name"], "original": c["name"], "icon": c["icon"], "color": c["color"]})
+        r = requests.put(f"{API}/admin/site", headers=_h(self.atok), json={"categories": cats})
+        assert r.status_code == 200, r.text
+        pub = requests.get(f"{API}/site").json()
+        assert new_name in pub["categories"]
+        assert pub["category_style"][new_name]["icon"] == "gift"
+        assert pub["category_style"][new_name]["color"].upper() == "#123456"
+        # Rename back preserving original style from snapshot
+        cats_back = []
+        for c in cats:
+            if c["name"] == new_name:
+                orig = next(x for x in self.snap["categories"] if x["name"] == "Templates")
+                cats_back.append({"name": "Templates", "original": new_name, "icon": orig["icon"], "color": orig["color"]})
+            else:
+                cats_back.append({"name": c["name"], "original": c["name"], "icon": c["icon"], "color": c["color"]})
+        r2 = requests.put(f"{API}/admin/site", headers=_h(self.atok), json={"categories": cats_back})
+        assert r2.status_code == 200
