@@ -509,7 +509,8 @@ class TestBulkImport:
             assert p["stock_count"] == 1
             assert p["delivery_type"] == "keys"
             assert p["title"].startswith(f"Product: TEST_BULK_{uniq}")
-            assert p["preview_lines"] == [f"Product: TEST_BULK_{uniq}", "Plan: Yearly", "Region: Global"]
+            # title_line is excluded from preview_lines (so no duplication)
+            assert p["preview_lines"] == ["Plan: Yearly", "Region: Global"]
             # description equals public lines joined (hidden lines not exposed to vendor list either in description)
             assert "License key" not in p["description"]
 
@@ -533,8 +534,8 @@ class TestBulkImport:
             assert "delivery_content" not in data
             assert "License key" not in (data.get("description") or "")
             assert data["price_cents"] == 900
-            # preview_lines included
-            assert data["preview_lines"][0].startswith("Product: TEST_BULK_")
+            # preview_lines included (title_line is excluded)
+            assert data["preview_lines"] == ["Plan: Yearly", "Region: Global"]
 
     def test_bulk_deliver_hidden_only(self, vendor_token):
         """deliver='hidden' -> delivered key contains ONLY the hidden lines."""
@@ -633,3 +634,255 @@ class TestBulkImport:
             "text": "\n\n", "separator": "dashes", "public_lines": [0], "deliver": "all",
             "category": "Templates", "price": 1.0})
         assert r.status_code == 400
+
+
+# ---------- Iteration 4: Bulk price/delete + buyer attr filters & facets ----------
+import json as _json
+
+
+def _create_approved_bulk(vendor_token, admin_token, uniq, regions, plan="Pro", price=3.0, category="Subscriptions"):
+    """Create a batch of items with public lines 'Plan: Pro' / 'Region: <r>', approve it. Returns (batch_id, pids)."""
+    blocks = []
+    for i, r in enumerate(regions):
+        blocks.append("\n".join([
+            f"Name: TEST_ITER4_{uniq}_{i}",
+            f"Plan: {plan}",
+            f"Region: {r}",
+            f"Pass: secret-{uniq}-{i}",
+        ]))
+    text = "\n-----\n".join(blocks)
+    body = {"text": text, "separator": "dashes", "public_lines": [1, 2], "title_line": 0,
+            "title_prefix": "Item", "deliver": "all", "category": category, "price": price, "tags": []}
+    r = requests.post(f"{API}/vendor/products/bulk", headers=_h(vendor_token), json=body)
+    assert r.status_code == 200, r.text
+    d = r.json()
+    bid = d["batch_id"]
+    assert d["created"] == len(regions)
+    ap = requests.post(f"{API}/admin/batches/{bid}/approve", headers=_h(admin_token), json={})
+    assert ap.status_code == 200, ap.text
+    prods = requests.get(f"{API}/vendor/products", headers=_h(vendor_token)).json()
+    pids = [p["id"] for p in prods if p.get("batch_id") == bid]
+    return bid, pids
+
+
+class TestBulkPriceDelete:
+    """POST /api/vendor/products/bulk-price and bulk-delete."""
+
+    @classmethod
+    def setup_class(cls):
+        cls.uniq = secrets.token_hex(3)
+        cls.vtok = _login(*VENDOR)
+        cls.atok = _login(*ADMIN)
+        cls.bid, cls.pids = _create_approved_bulk(cls.vtok, cls.atok, cls.uniq, ["EU", "US", "EU", "Asia"])
+
+    @classmethod
+    def teardown_class(cls):
+        # Clean up remaining products in the batch
+        try:
+            requests.delete(f"{API}/vendor/batches/{cls.bid}", headers=_h(cls.vtok))
+        except Exception:
+            pass
+        if getattr(cls, "_other_vtok", None):
+            try:
+                requests.delete(f"{API}/vendor/batches/{cls._other_bid}", headers=_h(cls._other_vtok))
+            except Exception:
+                pass
+
+    def test_bulk_price_requires_price(self):
+        r = requests.post(f"{API}/vendor/products/bulk-price", headers=_h(self.vtok),
+                          json={"ids": self.pids[:1]})
+        # price Optional default None -> 400 by handler (or 422 if pydantic blocked). Accept both; the API says 400.
+        assert r.status_code in (400, 422), r.text
+
+    def test_bulk_price_updates_and_resets_to_pending(self):
+        ids = self.pids[:2]
+        r = requests.post(f"{API}/vendor/products/bulk-price", headers=_h(self.vtok),
+                          json={"ids": ids, "price": 7.0})
+        assert r.status_code == 200, r.text
+        assert r.json()["updated"] == 2
+        # Verify both go to pending at the new price
+        prods = requests.get(f"{API}/vendor/products", headers=_h(self.vtok)).json()
+        touched = [p for p in prods if p["id"] in ids]
+        assert len(touched) == 2
+        for p in touched:
+            assert p["status"] == "pending"
+            assert p["price_cents"] == 700
+            assert p["vendor_price_cents"] == 700
+        # Public products now hidden (not approved)
+        for pid in ids:
+            assert requests.get(f"{API}/products/{pid}").status_code == 404
+
+    @classmethod
+    def _get_or_create_other_vendor_product(cls):
+        if getattr(cls, "_other_pid", None):
+            return cls._other_pid
+        # Register new vendor
+        email = f"TEST_vend2_{secrets.token_hex(3)}@market.com"
+        reg = _register(email, "Vendor@123", "V2", role="vendor", store_name="TEST V2 Store").json()
+        vtok2, vuid2 = reg["token"], reg["user"]["id"]
+        # Approve vendor
+        requests.post(f"{API}/admin/vendors/{vuid2}/approve", headers=_h(cls.atok), json={})
+        # Create a bulk listing + approve batch
+        bid2, pids2 = _create_approved_bulk(vtok2, cls.atok, secrets.token_hex(3), ["X"], price=1.0)
+        cls._other_vtok = vtok2
+        cls._other_bid = bid2
+        cls._other_pid = pids2[0]
+        return cls._other_pid
+
+    def test_bulk_price_ignores_other_vendors_ids(self):
+        """Vendor cannot touch another vendor's products via bulk-price."""
+        target = self._get_or_create_other_vendor_product()
+        before = requests.get(f"{API}/products/{target}").json()
+        r = requests.post(f"{API}/vendor/products/bulk-price", headers=_h(self.vtok),
+                          json={"ids": [target], "price": 999.0})
+        assert r.status_code == 200
+        assert r.json()["updated"] == 0
+        after = requests.get(f"{API}/products/{target}").json()
+        assert after["price_cents"] == before["price_cents"]
+        assert after["status"] == "approved"
+
+    def test_bulk_price_invalid_price_422(self):
+        # price <= 0 is rejected by pydantic (gt=0)
+        r = requests.post(f"{API}/vendor/products/bulk-price", headers=_h(self.vtok),
+                          json={"ids": self.pids[:1], "price": 0})
+        assert r.status_code == 422
+        r2 = requests.post(f"{API}/vendor/products/bulk-price", headers=_h(self.vtok),
+                           json={"ids": self.pids[:1], "price": 1e9})
+        assert r2.status_code == 422
+
+    def test_bulk_delete_removes_products_and_keys(self):
+        # Delete 2 items (pick two still-approved ones: last 2 pids)
+        victims = self.pids[2:4]
+        r = requests.post(f"{API}/vendor/products/bulk-delete", headers=_h(self.vtok),
+                          json={"ids": victims})
+        assert r.status_code == 200, r.text
+        d = r.json()
+        assert d["deleted"] == 2
+        assert d["keys_removed"] >= 2
+        for pid in victims:
+            assert requests.get(f"{API}/products/{pid}").status_code == 404
+        # Vendor list no longer has them
+        prods = requests.get(f"{API}/vendor/products", headers=_h(self.vtok)).json()
+        assert not [p for p in prods if p["id"] in victims]
+
+    def test_bulk_delete_ignores_other_vendors_ids(self):
+        target = self._get_or_create_other_vendor_product()
+        r = requests.post(f"{API}/vendor/products/bulk-delete", headers=_h(self.vtok),
+                          json={"ids": [target]})
+        # _delete_products raises 404 when no products match the (ids + vendor_id) filter
+        assert r.status_code == 404
+        # Target still exists
+        assert requests.get(f"{API}/products/{target}").status_code == 200
+
+    def test_bulk_delete_sold_orders_preserved(self, admin_token):
+        """Buy a bulk item, then bulk-delete it; buyer's vault order should remain."""
+        # Create fresh bulk + approve
+        uniq = secrets.token_hex(3)
+        bid, pids = _create_approved_bulk(self.vtok, self.atok, uniq, ["EU"], price=2.0)
+        pid = pids[0]
+        # Fresh buyer
+        email = f"TEST_iter4buy_{secrets.token_hex(3)}@market.com"
+        reg = _register(email, "Buyer@123", "BB").json()
+        btok, buid = reg["token"], reg["user"]["id"]
+        requests.post(f"{API}/admin/users/{buid}/adjust", headers=_h(admin_token),
+                      json={"amount": 20, "reason": "TEST_iter4"})
+        o = requests.post(f"{API}/orders", headers=_h(btok), json={"product_id": pid})
+        assert o.status_code == 200, o.text
+        order_id = o.json()["order"]["id"]
+        # Now vendor bulk-deletes it
+        r = requests.post(f"{API}/vendor/products/bulk-delete", headers=_h(self.vtok),
+                          json={"ids": [pid]})
+        assert r.status_code == 200
+        assert r.json()["deleted"] == 1
+        # Buyer vault should still contain the order
+        vault = requests.get(f"{API}/orders", headers=_h(btok)).json()
+        assert any(x["id"] == order_id for x in vault), "buyer vault lost sold order after vendor bulk-delete"
+
+
+class TestBuyerFilters:
+    """Facets endpoint and ?attrs= filter on /api/products."""
+
+    @classmethod
+    def setup_class(cls):
+        cls.uniq = secrets.token_hex(3)
+        cls.vtok = _login(*VENDOR)
+        cls.atok = _login(*ADMIN)
+        # 2 EU, 1 US, 1 Asia; all Plan: Pro; category Subscriptions
+        cls.bid, cls.pids = _create_approved_bulk(
+            cls.vtok, cls.atok, cls.uniq, ["EU", "US", "EU", "Asia"], plan="Pro")
+
+    @classmethod
+    def teardown_class(cls):
+        try:
+            requests.delete(f"{API}/vendor/batches/{cls.bid}", headers=_h(cls.vtok))
+        except Exception:
+            pass
+
+    def test_facets_returns_region_and_plan(self):
+        r = requests.get(f"{API}/products/facets", params={"category": "Subscriptions"})
+        assert r.status_code == 200
+        data = r.json()
+        keys = {f["key"]: f for f in data}
+        # Region: should contain at least EU(>=2), US(>=1), Asia(>=1) across my batch
+        assert "Region" in keys, keys
+        region_vals = {v["value"]: v["count"] for v in keys["Region"]["values"]}
+        assert region_vals.get("EU", 0) >= 2
+        assert region_vals.get("US", 0) >= 1
+        assert region_vals.get("Asia", 0) >= 1
+        # Values sorted by count desc
+        counts = [v["count"] for v in keys["Region"]["values"]]
+        assert counts == sorted(counts, reverse=True)
+
+    def test_facets_single_value_hidden_when_only_one(self):
+        # 'Plan: Pro' appears >1 so Plan should show if it has >=1 unique value with count>1 (per code).
+        r = requests.get(f"{API}/products/facets", params={"category": "Subscriptions"})
+        data = {f["key"]: f for f in r.json()}
+        # Plan has one unique value ('Pro') but total count is 4 so condition `len==1 and sum>1` keeps it
+        assert "Plan" in data
+        plan_vals = {v["value"]: v["count"] for v in data["Plan"]["values"]}
+        assert plan_vals.get("Pro", 0) >= 4
+
+    def test_attrs_filter_eu(self):
+        r = requests.get(f"{API}/products", params={"attrs": _json.dumps({"Region": "EU"})})
+        assert r.status_code == 200
+        prods = r.json()
+        mine = [p for p in prods if p.get("batch_id") == self.bid]
+        assert len(mine) == 2
+        for p in mine:
+            assert {"k": "Region", "v": "EU"} in p.get("attrs", [])
+
+    def test_attrs_filter_and_combination(self):
+        # Region=EU AND Plan=Pro -> both my 2 EU items
+        r = requests.get(f"{API}/products",
+                         params={"attrs": _json.dumps({"Region": "EU", "Plan": "Pro"})})
+        assert r.status_code == 200
+        mine = [p for p in r.json() if p.get("batch_id") == self.bid]
+        assert len(mine) == 2
+        # Region=EU AND Plan=Nonexistent -> 0
+        r2 = requests.get(f"{API}/products",
+                          params={"attrs": _json.dumps({"Region": "EU", "Plan": "NoSuch"})})
+        assert r2.status_code == 200
+        assert not [p for p in r2.json() if p.get("batch_id") == self.bid]
+
+    def test_attrs_invalid_json_400(self):
+        r = requests.get(f"{API}/products", params={"attrs": "not-json{"})
+        assert r.status_code == 400
+
+    def test_attrs_empty_dict_ignored(self):
+        """Empty attrs dict should NOT filter (returns full catalog)."""
+        r = requests.get(f"{API}/products", params={"attrs": _json.dumps({})})
+        assert r.status_code == 200
+        full = requests.get(f"{API}/products").json()
+        assert len(r.json()) == len(full)
+
+    def test_facets_respects_category(self):
+        r = requests.get(f"{API}/products/facets", params={"category": "Templates"})
+        assert r.status_code == 200
+        # None of my Subscriptions-Region values should appear here
+        data = {f["key"]: f for f in r.json()}
+        if "Region" in data:
+            vals = {v["value"] for v in data["Region"]["values"]}
+            # My batch is in Subscriptions, so these region counts shouldn't come from me - but other seeds may contribute.
+            # Just assert the response shape.
+            assert all("value" in v and "count" in v for v in data["Region"]["values"])
+

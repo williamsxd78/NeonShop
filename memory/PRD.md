@@ -44,3 +44,8 @@ Multi-vendor, wallet-based B2B marketplace for digital goods (license keys/codes
 - Admin "Approve batch" for pending batch items; permanent delete (vendor per product/batch, admin per product), which removes unsold keys and keeps past orders
 - Cards show the public preview lines; multi-line items are blurred in the vault until revealed
 - Tested: 38/38 backend tests and 100% of frontend flows passed (iteration_3)
+
+## Iteration 4 (2026-06)
+- Vendor multi-select (row checkboxes, select all, select batch), with bulk Set price (sends listings back to admin review) and bulk Delete (permanent)
+- Buyer filters: public "Key: Value" lines from bulk imports become attributes; the marketplace shows a dropdown per key (e.g. Region) with counts and AND filtering; GET /api/products/facets, /api/products?attrs=JSON
+- Tested: 52/52 backend tests and 100% of frontend flows passed (iteration_4)

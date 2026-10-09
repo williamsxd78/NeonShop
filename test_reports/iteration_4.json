@@ -1,0 +1,28 @@
+{
+  "summary": "Tested iteration-4 features: vendor bulk price edit, vendor bulk delete, and buyer attribute filters (facets + ?attrs=). Backend: extended backend_test.py from 38 to 52 tests (+14 new); pytest 52/52 pass. New coverage: (A) TestBulkPriceDelete — bulk-price requires price (400/422), updates vendor_price_cents+price_cents+resets status to 'pending' (public GET -> 404), ignores other vendors' ids (updated=0; verified against a freshly-provisioned & admin-approved second vendor), rejects invalid price (<=0 or >1e5 => 422); bulk-delete removes products + unsold keys, returns 404 when all ids belong to other vendors, and preserves buyer vault orders after deleting a sold item. (B) TestBuyerFilters — /products/facets returns {key, values:[{value,count}]} ordered by count desc; respects category param; single-value facet still shown when sum>1 (Plan: Pro => count 4); /products?attrs={\"Region\":\"EU\"} filters correctly; AND-combination of multiple keys works; invalid JSON => 400; empty {} => no filter. Also fixed a stale assertion in TestBulkImport (iteration-3 cosmetic fix: title_line is now excluded from preview_lines/description to prevent duplication). Frontend (Playwright, no backend changes): Marketplace Subscriptions tab shows attr-filters bar with attr-filter-region select containing 'Region: all' + 'EU (2)' + 'US (1)' + 'Asia (1)'; selecting EU reduced products-count from 9 -> 2; attr-filters-clear restored 9; changing category tab (All) cleared the Region selection and reloaded facets. VendorDashboard Products tab: vendor-select-batch-<bid> selects all items in the batch; selection bar renders with vendor-selected-count '4 selected'; vendor-bulk-price-btn opens PromptDialog, submitting 9.99 triggered toast '4 listing(s) updated, pending review' and products went pending; vendor-bulk-delete-btn + vendor-delete-confirm produced toast 'Deleted 4 product(s)'; vendor-select-all shows the selection bar and vendor-clear-selection hides it.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/backend_test.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py vendor_bulk_price: when body.price is None, handler raises 400 but Pydantic field has gt=0 so None bypasses the Field validator. Current 400 is correct, kept.",
+    "server.py product_facets: filter 'len(vals) == 1 and sum(vals.values()) > 1' intentionally includes single-value facets when count>1 (so 'Plan: Pro' with 4 items shows up). Semantically useful but may surprise buyers because the filter has only one option — minor UX note.",
+    "server.py parse_attrs titlecases keys ('plan' -> 'Plan') but values are kept as-is. The Marketplace select builds slugs lowercased, which is good; AND filter requires exact k/v match on title-cased key — consistent since parse_attrs is applied on both import and in facets.",
+    "server.py base_query is defined but list_products duplicates the same logic (status/vendor/category) instead of calling base_query. Minor DRY nit.",
+    "Marketplace.jsx: attrs state is reset on every cat/vendor change AND facets are re-fetched — correct. Debounce (250ms) applies to all queries including attrs; acceptable.",
+    "VendorDashboard.jsx ProductsTab: the selection list is NOT re-filtered after bulk-price/bulk-delete other than being cleared manually; code does setSel([]) before reload — good.",
+    "BulkIdsIn uses max_length=5000 but no server-side rate limiting; abusive repeated 5000-id bulk-delete could be heavy. Not critical."
+  ],
+  "updated_files": ["/app/backend/tests/backend_test.py"],
+  "success_rate": {"backend": "100% (52/52)", "frontend": "100% - buyer filters & vendor bulk price/delete UI flows all green"},
+  "test_credentials": "admin@market.com/Admin@123, buyer@market.com/Buyer@123, vendor@market.com/Vendor@123 (math captcha required)",
+  "seed_data_creation": "TestBulkPriceDelete creates 4 items + a 2nd test vendor's 1 item; TestBuyerFilters creates 4 items; both cleanup via teardown_class vendor-delete-batch. Playwright UI test created a 4-item batch (deleted at end). One residual batch from a pre-existing manual smoke test ('Name: TEST_Acct 0' row visible in vendor dashboard screenshot) was not cleaned up — minor.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Iteration-4 testids verified: vendor-select-<id>, vendor-select-all, vendor-select-batch-<bid>, vendor-selection-bar, vendor-selected-count, vendor-bulk-price-btn, vendor-bulk-delete-btn, vendor-clear-selection, PromptDialog uses testPrefix 'vendor-bulk-price' => vendor-bulk-price-dialog/input/confirm, ConfirmDialog uses 'vendor-delete' => vendor-delete-confirm/cancel. Marketplace: attr-filters, attr-filter-<slug> (slug = key.lower().replace(/[^a-z0-9]+/g,'-')), attr-filters-clear, products-count, product-grid, category-tab-<slug>. Backend: /api/products/facets?category=&vendor=, /api/products?attrs=<json>, /api/vendor/products/bulk-price {ids, price}, /api/vendor/products/bulk-delete {ids}. parse_attrs() title-cases the key; expects 'Key: Value' format with key<=30 chars and value<=60 chars; applied on bulk import to preview lines only. Facet shows only keys with 2-40 unique values OR a single value with total count>1.",
+  "rca of the issue": "No functional bugs. One stale test assertion was fixed in backend_test.py because iteration-3 cosmetic feedback was addressed by the main agent (preview_lines/description now exclude title_line to avoid duplication)."
+}

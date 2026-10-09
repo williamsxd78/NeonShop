@@ -261,12 +261,12 @@ async def product_facets(category: str = "", vendor: str = ""):
             facets.setdefault(a["k"], {}).setdefault(a["v"], 0)
             facets[a["k"]][a["v"]] += 1
     return [{"key": k, "values": sorted([{"value": v, "count": c} for v, c in vals.items()], key=lambda x: -x["count"])}
-            for k, vals in facets.items() if 2 <= len(vals) <= 40 or (len(vals) == 1 and sum(vals.values()) > 1)]
+            for k, vals in facets.items() if 2 <= len(vals) <= 40]
 
 
 @api.get("/products")
 async def list_products(q: str = "", category: str = "", sort: str = "new", vendor: str = "", attrs: str = ""):
-    query = {"status": "approved"}
+    query = base_query(category, vendor)
     if attrs:
         try:
             sel = {str(k): str(v) for k, v in json.loads(attrs).items() if v}
@@ -274,10 +274,6 @@ async def list_products(q: str = "", category: str = "", sort: str = "new", vend
             raise HTTPException(400, "Invalid attrs filter")
         if sel:
             query["attrs"] = {"$all": [{"$elemMatch": {"k": k, "v": v}} for k, v in sel.items()]}
-    if vendor:
-        query["vendor_id"] = vendor
-    if category and category in CATEGORIES:
-        query["category"] = category
     if q:
         query["$or"] = [{"title": {"$regex": q, "$options": "i"}},
                         {"description": {"$regex": q, "$options": "i"}},
