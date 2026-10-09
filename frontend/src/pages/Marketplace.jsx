@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { Search, AlertCircle, RefreshCw, ArrowLeft, X } from "lucide-react";
+import { Search, AlertCircle, RefreshCw, ArrowLeft, X, SlidersHorizontal } from "lucide-react";
 import { api, CATEGORIES, money } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { ProductCard } from "@/components/ProductCard";
@@ -18,13 +18,17 @@ export default function Marketplace() {
   const [cat, setCat] = useState("");
   const [sort, setSort] = useState("new");
   const [tick, setTick] = useState(0);
+  const [facets, setFacets] = useState([]);
+  const [attrs, setAttrs] = useState({});
+  const active = Object.values(attrs).filter(Boolean).length;
 
+  useEffect(() => { setAttrs({}); api.get("/products/facets", { params: { category: cat, vendor } }).then((r) => setFacets(r.data)); }, [cat, vendor]);
   useEffect(() => {
     const t = setTimeout(() => {
-      api.get("/products", { params: { q, category: cat, sort, vendor } }).then((r) => setItems(r.data));
+      api.get("/products", { params: { q, category: cat, sort, vendor, attrs: active ? JSON.stringify(attrs) : "" } }).then((r) => setItems(r.data));
     }, 250);
     return () => clearTimeout(t);
-  }, [q, cat, sort, vendor, tick]);
+  }, [q, cat, sort, vendor, tick, attrs, active]);
 
   return (
     <div>
@@ -55,6 +59,23 @@ export default function Marketplace() {
           </button>
         ))}
       </div>
+
+      {facets.length > 0 && (
+        <div data-testid="attr-filters" className="mb-5 flex flex-wrap items-center gap-2">
+          <span className="flex items-center gap-1.5 font-mono text-xs uppercase tracking-wider text-slate-500"><SlidersHorizontal size={14} />Filters</span>
+          {facets.map((f) => {
+            const slug = f.key.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+            return (
+              <select key={f.key} data-testid={`attr-filter-${slug}`} value={attrs[f.key] || ""} onChange={(e) => setAttrs({ ...attrs, [f.key]: e.target.value })}
+                className={`rounded-lg border bg-[#171A19] px-3 py-2 text-sm outline-none ${attrs[f.key] ? "border-[#22C55E]/60 text-[#4ADE80]" : "border-[#272B29] text-slate-300"}`}>
+                <option value="">{f.key}: all</option>
+                {f.values.map((v) => <option key={v.value} value={v.value}>{`${v.value} (${v.count})`}</option>)}
+              </select>
+            );
+          })}
+          {active > 0 && <button data-testid="attr-filters-clear" onClick={() => setAttrs({})} className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-white"><X size={13} />Clear ({active})</button>}
+        </div>
+      )}
 
       <div data-testid="sales-final-notice" className="mb-6 flex gap-3 rounded-2xl border border-[#FFB800]/30 bg-[#FFB800]/[0.06] p-4">
         <AlertCircle size={20} className="mt-0.5 shrink-0 text-[#FFB800]" />

@@ -1,5 +1,6 @@
 import os
 import re
+import json
 import uuid
 import secrets
 import asyncio
@@ -234,9 +235,45 @@ async def categories():
     return CATEGORIES
 
 
-@api.get("/products")
-async def list_products(q: str = "", category: str = "", sort: str = "new", vendor: str = ""):
+def parse_attrs(lines: List[str]) -> List[dict]:
+    out = []
+    for ln in lines:
+        k, sep, v = ln.partition(":")
+        if sep and 0 < len(k.strip()) <= 30 and v.strip() and len(v.strip()) <= 60:
+            out.append({"k": k.strip().title(), "v": v.strip()})
+    return out
+
+
+def base_query(category: str, vendor: str) -> dict:
     query = {"status": "approved"}
+    if vendor:
+        query["vendor_id"] = vendor
+    if category and category in CATEGORIES:
+        query["category"] = category
+    return query
+
+
+@api.get("/products/facets")
+async def product_facets(category: str = "", vendor: str = ""):
+    facets: Dict[str, Dict[str, int]] = {}
+    async for p in db.products.find({**base_query(category, vendor), "attrs.0": {"$exists": True}}, {"attrs": 1}):
+        for a in p["attrs"]:
+            facets.setdefault(a["k"], {}).setdefault(a["v"], 0)
+            facets[a["k"]][a["v"]] += 1
+    return [{"key": k, "values": sorted([{"value": v, "count": c} for v, c in vals.items()], key=lambda x: -x["count"])}
+            for k, vals in facets.items() if 2 <= len(vals) <= 40 or (len(vals) == 1 and sum(vals.values()) > 1)]
+
+
+@api.get("/products")
+async def list_products(q: str = "", category: str = "", sort: str = "new", vendor: str = "", attrs: str = ""):
+    query = {"status": "approved"}
+    if attrs:
+        try:
+            sel = {str(k): str(v) for k, v in json.loads(attrs).items() if v}
+        except (ValueError, AttributeError):
+            raise HTTPException(400, "Invalid attrs filter")
+        if sel:
+            query["attrs"] = {"$all": [{"$elemMatch": {"k": k, "v": v}} for k, v in sel.items()]}
     if vendor:
         query["vendor_id"] = vendor
     if category and category in CATEGORIES:
@@ -247,7 +284,7 @@ async def list_products(q: str = "", category: str = "", sort: str = "new", vend
                         {"vendor_name": {"$regex": q, "$options": "i"}}]
     sorts = {"new": [("approved_at", -1)], "popular": [("sales_count", -1)],
              "price_asc": [("price_cents", 1)], "price_desc": [("price_cents", -1)]}
-    return await db.products.find(query, PUBLIC_PRODUCT).sort(sorts.get(sort, sorts["new"])).to_list(500)
+    return await db.products.find(query, PUBLIC_PRODUCT).sort(sorts.get(sort, sorts["new"])).to_list(2000)
 
 
 @api.get("/vendors")
@@ -510,7 +547,8 @@ async def vendor_bulk_import(body: BulkIn, user=Depends(require_approved_vendor)
         title = b[body.title_line] if body.title_line is not None and body.title_line < len(b) else f"{body.title_prefix} #{n}"
         pid = new_id()
         products.append({"id": pid, "vendor_id": user["id"], "vendor_name": vname, "title": title[:120],
-                         "description": "\n".join(preview), "preview_lines": preview, "category": body.category,
+                         "description": "\n".join(preview), "preview_lines": preview, "attrs": parse_attrs(preview),
+                         "category": body.category,
                          "price_cents": cents, "vendor_price_cents": cents,
                          "image": body.image or DEFAULT_IMAGES[body.category], "tags": clean_tags(body.tags),
                          "delivery_type": "keys", "delivery_content": "", "batch_id": batch_id,
@@ -532,6 +570,28 @@ async def _delete_products(query: dict, actor: dict, label: str):
     k = await db.license_keys.delete_many({"product_id": {"$in": pids}, "status": "available"})
     await audit(actor, "product.delete", label, details=f"{len(pids)} product(s), {k.deleted_count} unsold keys removed")
     return {"deleted": len(pids), "keys_removed": k.deleted_count}
+
+
+class BulkIdsIn(BaseModel):
+    ids: List[str] = Field(min_length=1, max_length=5000)
+    price: Optional[float] = Field(default=None, gt=0, le=100000)
+
+
+@api.post("/vendor/products/bulk-price")
+async def vendor_bulk_price(body: BulkIdsIn, user=Depends(require_approved_vendor)):
+    if not body.price:
+        raise HTTPException(400, "Price is required")
+    cents = to_cents(body.price)
+    r = await db.products.update_many({"id": {"$in": body.ids}, "vendor_id": user["id"]},
+                                      {"$set": {"vendor_price_cents": cents, "price_cents": cents, "status": "pending",
+                                                "reason": None, "updated_at": now_iso()}})
+    await audit(user, "product.bulk_price", None, details=f"{r.modified_count} listings -> ${body.price:.2f} (resubmitted for review)")
+    return {"updated": r.modified_count}
+
+
+@api.post("/vendor/products/bulk-delete")
+async def vendor_bulk_delete(body: BulkIdsIn, user=Depends(require_role("vendor"))):
+    return await _delete_products({"id": {"$in": body.ids}, "vendor_id": user["id"]}, user, f"{len(body.ids)} selected")
 
 
 @api.delete("/vendor/products/{pid}")
@@ -877,6 +937,7 @@ async def startup():
     await db.license_keys.create_index([("product_id", 1), ("status", 1)])
     await db.license_keys.create_index([("vendor_id", 1), ("key", 1)])
     await db.products.create_index("batch_id")
+    await db.products.create_index([("status", 1), ("attrs.k", 1), ("attrs.v", 1)])
     await db.login_attempts.create_index("identifier")
     await db.captchas.create_index("expires_at", expireAfterSeconds=0)
     await seed_all()

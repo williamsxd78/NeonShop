@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { api, errMsg, money, fmtDate } from "@/lib/api";
 import { useFetch } from "@/lib/useFetch";
 import { useAuth } from "@/context/AuthContext";
-import { PageHeader, Stat, StatusBadge, Empty, FilterTabs, ConfirmDialog } from "@/components/Shared";
+import { PageHeader, Stat, StatusBadge, Empty, FilterTabs, ConfirmDialog, PromptDialog } from "@/components/Shared";
 import { BulkImport } from "@/components/vendor/BulkImport";
 import { ProductForm } from "@/components/vendor/ProductForm";
 import { KeysDialog } from "@/components/vendor/KeysDialog";
@@ -15,11 +15,17 @@ function ProductsTab({ products, reload }) {
   const [keysFor, setKeysFor] = useState(null);
   const [bulk, setBulk] = useState(false);
   const [del, setDel] = useState(null);
+  const [sel, setSel] = useState([]);
+  const [bulkPrice, setBulkPrice] = useState(false);
+  const allOn = products?.length > 0 && sel.length === products.length;
+  const toggle = (id) => setSel(sel.includes(id) ? sel.filter((x) => x !== id) : [...sel, id]);
+  const selectBatch = (b) => setSel([...new Set([...sel, ...products.filter((p) => p.batch_id === b).map((p) => p.id)])]);
   const batches = Object.entries((products || []).reduce((a, p) => (p.batch_id ? { ...a, [p.batch_id]: (a[p.batch_id] || 0) + 1 } : a), {}));
   const doDelete = async () => {
     try {
-      const { data } = await api.delete(del.batch ? `/vendor/batches/${del.batch}` : `/vendor/products/${del.p.id}`);
-      toast.success(`Deleted ${data.deleted} product(s)`); reload();
+      const { data } = del.ids ? await api.post("/vendor/products/bulk-delete", { ids: del.ids })
+        : await api.delete(del.batch ? `/vendor/batches/${del.batch}` : `/vendor/products/${del.p.id}`);
+      toast.success(`Deleted ${data.deleted} product(s)`); setSel([]); reload();
     } catch (e) { toast.error(errMsg(e)); }
   };
   return (
@@ -31,17 +37,26 @@ function ProductsTab({ products, reload }) {
       {batches.length > 0 && (
         <div className="mb-4 flex flex-wrap gap-2" data-testid="vendor-batches">{batches.map(([b, n]) => (
           <span key={b} className="flex items-center gap-2 rounded-lg border border-[#272B29] bg-[#121413] px-3 py-1.5 font-mono text-[11px] text-slate-400">
-            Batch {b.slice(0, 6)} · {n} items
+            <button data-testid={`vendor-select-batch-${b}`} onClick={() => selectBatch(b)} className="hover:text-white" title="Select all items in batch">Batch {b.slice(0, 6)} · {n} items</button>
             <button data-testid={`vendor-delete-batch-${b}`} onClick={() => setDel({ batch: b, n })} className="text-[#FF2A5F] hover:text-[#FF6B8B]"><Trash2 size={13} /></button>
           </span>
         ))}</div>
       )}
+      {sel.length > 0 && (
+        <div data-testid="vendor-selection-bar" className="sticky top-16 z-20 mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-[#22C55E]/40 bg-[#0E100F]/95 p-3 backdrop-blur">
+          <span data-testid="vendor-selected-count" className="font-mono text-sm text-[#4ADE80]">{sel.length} selected</span>
+          <button data-testid="vendor-bulk-price-btn" onClick={() => setBulkPrice(true)} className="nk-btn-primary nk-btn-sm ml-auto">Set price</button>
+          <button data-testid="vendor-bulk-delete-btn" onClick={() => setDel({ ids: sel })} className="nk-btn-danger nk-btn-sm"><Trash2 size={14} />Delete</button>
+          <button data-testid="vendor-clear-selection" onClick={() => setSel([])} className="nk-btn-ghost nk-btn-sm">Clear</button>
+        </div>
+      )}
       {!products?.length ? <Empty testId="vendor-products-empty" text="No products yet. Create your first listing." /> : (
         <div className="nk-card overflow-x-auto">
           <table className="nk-table" data-testid="vendor-products-table">
-            <thead><tr><th>Product</th><th>Category</th><th>Your price</th><th>Live price</th><th>Stock</th><th>Status</th><th /></tr></thead>
+            <thead><tr><th className="w-8"><input type="checkbox" data-testid="vendor-select-all" className="accent-[#22C55E]" checked={allOn} onChange={() => setSel(allOn ? [] : products.map((p) => p.id))} /></th><th>Product</th><th>Category</th><th>Your price</th><th>Live price</th><th>Stock</th><th>Status</th><th /></tr></thead>
             <tbody>{products.map((p) => (
-              <tr key={p.id} data-testid={`vendor-product-row-${p.id}`}>
+              <tr key={p.id} data-testid={`vendor-product-row-${p.id}`} className={sel.includes(p.id) ? "bg-[#22C55E]/[0.05]" : ""}>
+                <td><input type="checkbox" data-testid={`vendor-select-${p.id}`} className="accent-[#22C55E]" checked={sel.includes(p.id)} onChange={() => toggle(p.id)} /></td>
                 <td className="font-medium text-slate-100">{p.title}<div className="font-mono text-[10px] uppercase text-slate-500">{p.delivery_type === "content" ? "content delivery" : "key delivery"}{p.tags?.length ? ` · #${p.tags.join(" #")}` : ""}</div>{p.reason && <div className="text-xs text-[#FF2A5F]">{p.reason}</div>}</td>
                 <td className="text-xs">{p.category}</td>
                 <td className="font-mono">{money(p.vendor_price_cents ?? p.price_cents)}</td>
@@ -61,8 +76,11 @@ function ProductsTab({ products, reload }) {
       <ProductForm open={edit !== undefined} onOpenChange={(o) => !o && setEdit(undefined)} product={edit} onSaved={reload} />
       <BulkImport open={bulk} onOpenChange={setBulk} onDone={reload} />
       <ConfirmDialog testId="vendor-delete" open={!!del} onOpenChange={(o) => !o && setDel(null)} onConfirm={doDelete}
-        title={del?.batch ? `Delete batch (${del.n} items)?` : `Delete "${del?.p?.title}"?`}
+        title={del?.ids ? `Delete ${del.ids.length} selected product(s)?` : del?.batch ? `Delete batch (${del.n} items)?` : `Delete "${del?.p?.title}"?`}
         description="This permanently deletes the listing(s) and all unsold stock. Past orders and buyers' vaults are not affected." />
+      <PromptDialog testId="vendor-bulk-price" open={bulkPrice} onOpenChange={setBulkPrice} title={`Set price for ${sel.length} listing(s)`}
+        description="Changed listings go back to admin review before going live again." label="New price (USD)" type="number" confirmText="Update prices"
+        onSubmit={async (v) => { try { const { data } = await api.post("/vendor/products/bulk-price", { ids: sel, price: parseFloat(v) }); toast.success(`${data.updated} listing(s) updated, pending review`); setSel([]); reload(); } catch (e) { toast.error(errMsg(e)); throw e; } }} />
       <KeysDialog product={keysFor} onOpenChange={(o) => !o && setKeysFor(null)} onChanged={reload} />
     </>
   );
