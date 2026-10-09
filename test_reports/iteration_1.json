@@ -1,0 +1,27 @@
+{
+  "summary": "End-to-end testing of NeonKeys multi-vendor digital goods marketplace. Backend: 22/22 pytest cases passing covering auth, catalog, deposits with duplicate TXID rejection, admin deposit approval, insufficient balance, purchase & delivery, concurrency (no overselling, no duplicate keys, non-negative balance), commissions (global + per-vendor override), vendor product + keys (dedupe) + admin approval with price override, withdrawal pay/reject-refund, suspend-blocks-login, admin credit/debit, admin stats, audit log and address management. Frontend: buyer/vendor/admin login flows, wrong-password error, vendor register goes directly to vendor dashboard showing pending/awaiting approval, marketplace loads 18 products, admin panel renders all 7 tabs (deposits, withdrawals, vendors, listings, users, settings/commission, audit log), wallet page shows embedded Add Funds form + deposit history + balance history, product detail Buy button present, mobile 390px shows functional bottom-nav.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Wallet / AddFunds select", "issues": ["React hydration warning: <span> cannot be child of <option> (caused by dev tooling injecting data-source spans inside <option> text). Not functionally broken but logs a console warning on every render."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/backend_test.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Seed addresses are placeholders ('REPLACE_WITH_YOUR_<COIN>_ADDRESS'); tests had to seed a real-looking BTC address via admin settings before deposit flow could run. Document this expectation to prod operators or short-circuit the create_deposit endpoint earlier with a clearer message.",
+    "server.py:276 unset of order_id/buyer_id uses find_one_and_update with mixed $set+$unset in one update doc - works but $set and $unset must be two separate top-level operators (they are, OK). Verified compensation on rare race.",
+    "admin_vendors with status='all' still filters role='vendor' but admin_vendors('pending') default fine; register endpoint allows role='buyer' or 'vendor' but 'admin' creation blocked by Literal - correct.",
+    "login_attempts has no TTL index; locked_until check uses iso string comparison which works as long as same timezone format - OK but TTL would clean up stale records."
+  ],
+  "updated_files": ["/app/backend/tests/backend_test.py"],
+  "success_rate": {"backend": "100% (22/22)", "frontend": "95% - all surveyed flows functional, 1 console hydration warning on select"},
+  "test_credentials": "admin@market.com/Admin@123, buyer@market.com/Buyer@123, vendor@market.com/Vendor@123 (seed verified)",
+  "seed_data_creation": "Tests seeded a BTC deposit address 'bc1qtestdepositaddress' via /api/admin/settings so deposit flow can execute (placeholder address blocks creation by design). Also created many TEST_ prefixed buyers/vendors/products.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend fully covered by /app/backend/tests/backend_test.py (22 cases, run with pytest). Crypto addresses in settings now include a test BTC value - resetting may be needed before user demo. UI data-testids follow pattern: login-email-input, login-password-input, login-submit-button, register-*, register-role-vendor, buy-now-btn, admin-tab-<section>, deposit-coin-select, bottom-nav, product-card-<id>. There is a React hydration warning on the AddFunds <select><option> due to dev tooling injecting <span> children into <option> elements - this appears to be caused by the x-source metadata attributes in the build, not application code; investigate build tooling if removing is a priority.",
+  "rca of the issue": "No blocking issues. The one console warning (<span> inside <option>) traces to dev-time source-map tooling adding meta spans into option elements - cosmetic only."
+}

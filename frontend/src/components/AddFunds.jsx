@@ -39,7 +39,7 @@ export function AddFunds({ onDone }) {
           <label className="nk-label">Coin / network</label>
           <select data-testid="deposit-coin-select" className="nk-input" value={coin} disabled={!!dep} onChange={(e) => setCoin(e.target.value)}>
             <option value="">Select coin…</option>
-            {coins.map((c) => <option key={c.code} value={c.code}>{c.label} — {c.network}</option>)}
+            {coins.map((c) => <option key={c.code} value={c.code}>{`${c.label} — ${c.network}`}</option>)}
           </select>
         </div>
         <div>
