@@ -30,7 +30,7 @@ export function AdminListings({ onChange }) {
   const [preview, setPreview] = useState(null);
   const [batch, setBatch] = useState(null);
   const [del, setDel] = useState(null);
-  const batchCount = (b) => list.filter((x) => x.batch_id === b && x.status !== "approved").length;
+  const batchCount = (b) => list.filter((x) => x.batch_id === b && x.status === "pending").length;
   const done = () => { reload(); onChange(); };
   const call = async (fn, msg) => { try { await fn(); toast.success(msg); done(); } catch (e) { toast.error(errMsg(e)); throw e; } };
 
@@ -52,7 +52,7 @@ export function AdminListings({ onChange }) {
                 <td><StatusBadge status={p.status} /></td>
                 <td className="whitespace-nowrap text-right">
                   <button data-testid={`listing-preview-${p.id}`} onClick={() => setPreview(p)} className="nk-btn-ghost nk-btn-sm mr-2">Preview</button>
-                  {p.batch_id && p.status !== "approved" && <button data-testid={`listing-approve-batch-${p.id}`} onClick={() => setBatch(p)} className="nk-btn-primary nk-btn-sm mr-2">Approve batch ({batchCount(p.batch_id)})</button>}
+                  {p.batch_id && p.status === "pending" && <button data-testid={`listing-approve-batch-${p.id}`} onClick={() => setBatch(p)} className="nk-btn-primary nk-btn-sm mr-2">Approve batch ({batchCount(p.batch_id)})</button>}
                   {p.status !== "approved" && <button data-testid={`listing-approve-${p.id}`} onClick={() => setApprove(p)} className="nk-btn-primary nk-btn-sm mr-2">Approve</button>}
                   {p.status !== "rejected" && <button data-testid={`listing-reject-${p.id}`} onClick={() => setReject(p)} className="nk-btn-danger nk-btn-sm mr-2">Reject</button>}
                   <button data-testid={`listing-price-${p.id}`} onClick={() => setPrice(p)} className="nk-btn-ghost nk-btn-sm mr-2">Price</button>

@@ -45,7 +45,7 @@ const PreviewCard = ({ b, pub, titleLine, prefix, n, price }) => (
   <div className="rounded-xl border border-[#272B29] bg-[#121413] p-3 pl-4 relative">
     <span className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-[#22D3EE]" />
     <div className="text-sm font-semibold">{titleLine !== null && b[titleLine] ? b[titleLine] : `${prefix} #${n}`}</div>
-    {pub.filter((i) => i < b.length).map((i) => <div key={i} className="truncate font-mono text-[11px] text-slate-400">{b[i]}</div>)}
+    {pub.filter((i) => i < b.length && i !== titleLine).map((i) => <div key={i} className="truncate font-mono text-[11px] text-slate-400">{b[i]}</div>)}
     <div className="mt-1 font-mono text-sm text-[#4ADE80]">{money(price * 100)}</div>
   </div>
 );

@@ -1,0 +1,28 @@
+{
+  "summary": "Tested the bulk-import / batch-approve / vendor+admin delete flows end-to-end. Backend: 38/38 pytest cases pass (30 existing + 8 new TestBulkImport cases). New cases cover: (1) dashes-separator import of 4 blocks + 1 duplicate -> created=4, skipped=1, each product pending/stock=1/preview_lines=public lines and description has no hidden lines; (2) admin batch approve -> all 4 go live at the override price, public GET /api/products/{id} omits delivery_content and hidden lines not leaked in description; (3) deliver='hidden' -> delivered license_key contains ONLY the hidden lines (no public lines); (4) buyer purchase of a bulk item delivers the multi-line key (newlines preserved) and product goes to stock=0 / second buy -> 400; (5) vendor DELETE /api/vendor/products/{pid} removes the sold product, past orders untouched; (6) vendor DELETE /api/vendor/batches/{bid} wipes remaining 3 items + unsold keys; (7) blank-line separator works; (8) empty-text import -> 400. Frontend (Playwright, vendor@market.com): login via math captcha works; Products tab 'Bulk import' button opens bulk-import-dialog; step 1 shows '5 lines detected'; step 2 'Next' is correctly disabled until >=1 public line & price>0; step 3 shows '3 items detected', preview cards only render the 3 public lines (verified 'License key' and 'Activation' strings are NOT in preview), submit shows toast '3 products submitted for review', batch chip 'Batch xxxxxx · 3 items' appears in vendor-batches, vendor-delete-batch -> ConfirmDialog -> vendor-delete-confirm deletes with toast 'Deleted 3 product(s)'. Hidden-line protection verified both server-side (PUBLIC_PRODUCT projection, description = public lines only) and client-side (PreviewCard renders only public lines).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "BulkImport step 3 preview card", "issues": ["When a line is marked both 'title' and 'Public', the preview card renders that line twice (once as the title + once in the public-lines list). Matches backend output (description = all public lines joined, so the title line is duplicated in description too). Low-priority cosmetic. Consider filtering `pub.filter(i => i !== titleLine)` in PreviewCard and setting backend description = [b[i] for i in pub if i != title_line]."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/backend_test.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py vendor_bulk_import: duplicate detection uses the delivered key (secret) as the dedup key - this means if deliver='hidden' and two blocks share identical hidden lines but different public ones, the second is silently skipped. For deliver='all' this is intuitive; for deliver='hidden' it may surprise vendors. Minor.",
+    "server.py _delete_products: only removes `status: available` license keys, correctly leaving sold/reserved rows so past orders & vault entries are intact.",
+    "server.py admin_approve_batch: approves every non-approved item in the batch (including already-rejected ones). Intended behavior per spec, but admin should be aware a 'reject then approve-batch' sequence will undo the reject.",
+    "BulkImport.jsx submit: parseFloat(meta.price) is NaN-safe only because disabled check requires price>0, but no explicit frontend guard against >100000 (backend enforces).",
+    "BulkImport.jsx readFile silently ignores non-text (no content-type check) - acceptable since FileReader just reads bytes as text."
+  ],
+  "updated_files": ["/app/backend/tests/backend_test.py"],
+  "success_rate": {"backend": "100% (38/38)", "frontend": "100% - all bulk-import UI testids & flows verified"},
+  "test_credentials": "admin@market.com/Admin@123, buyer@market.com/Buyer@123, vendor@market.com/Vendor@123 (math captcha required)",
+  "seed_data_creation": "TEST_BULK_* / UI_TEST_* data cleaned up by the tests themselves (vendor-delete-batch calls at end of each flow). A couple TEST_bulkbuy_* buyer users remain but have no funds.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Bulk UI testids: vendor-bulk-import-btn, bulk-import-dialog, bulk-sep-{dashes|blank|custom}, bulk-sep-custom-input, bulk-sample-input, bulk-sample-count, bulk-next-1, bulk-line-toggle-<i>, bulk-line-title-<i>, bulk-deliver-{all|hidden}, bulk-title-prefix, bulk-category, bulk-price, bulk-image-<0..4>, bulk-back-1, bulk-next-2 (disabled until pub.length>0 && price>0), bulk-data-input, bulk-file-input, bulk-detected-count, bulk-odd-warning, bulk-preview, bulk-back-2, bulk-submit-btn. Vendor delete: vendor-delete-btn-<pid>, vendor-batches, vendor-delete-batch-<bid>, confirm dialog uses testPrefix 'vendor-delete' => vendor-delete-confirm/vendor-delete-cancel. Admin: listing-approve-batch-<pid> (PromptDialog batch-approve), listing-delete-<pid> (ConfirmDialog listing-delete-confirm). Login button is `Sign in` (not submit type-only, prefer get_by_role('button', name='Sign in')).",
+  "rca of the issue": "No bugs found - bulk import, batch approve, and vendor/admin delete flows all work correctly. Hidden lines are reliably stripped from both the public API (PUBLIC_PRODUCT projection excludes delivery_content) and the UI preview (PreviewCard renders only pub lines)."
+}

@@ -38,3 +38,9 @@ Multi-vendor, wallet-based B2B marketplace for digital goods (license keys/codes
 - P1: Real deposit addresses must be set by admin (seeded placeholders)
 - P1: Support tickets / disputes, 2FA for admin & vendors
 - P2: Blockchain API auto-verification, amount-encoded QR, vendor ratings, file-download delivery, Stripe/PayPal rails
+
+## Iteration 3 (2026-06)
+- Vendor bulk import (3 steps): paste a sample item, pick separator (dashes / blank line / custom), mark Public/Hidden lines plus a title line, choose delivery (all lines / hidden only), set batch price, category, tags, image, then paste or upload a .txt/.csv; preview, then each item becomes its own pending listing (stock 1); duplicates skipped
+- Admin "Approve batch" for pending batch items; permanent delete (vendor per product/batch, admin per product), which removes unsold keys and keeps past orders
+- Cards show the public preview lines; multi-line items are blurred in the vault until revealed
+- Tested: 38/38 backend tests and 100% of frontend flows passed (iteration_3)

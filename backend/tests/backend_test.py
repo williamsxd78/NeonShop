@@ -461,3 +461,175 @@ class TestNewFeatures:
         r2 = requests.post(f"{API}/orders", headers=_h(btok), json={"product_id": pid})
         assert r2.status_code == 200, r2.text
         assert r2.json()["order"]["delivery_content"] == secret
+
+
+# ---------- Bulk import, batch approve, delete ----------
+def _build_bulk_text(n, uniq, lines_per=5, sep="--------------------------------------------------"):
+    """Build n blocks separated by dash line. Each has `lines_per` lines; the key line is unique."""
+    blocks = []
+    for i in range(n):
+        blocks.append("\n".join([
+            f"Product: TEST_BULK_{uniq}",
+            f"Plan: Yearly",
+            f"Region: Global",
+            f"License key: KEY-{uniq}-{i:04d}",
+            f"Activation: Account > Licenses",
+        ]))
+    return f"\n{sep}\n".join(blocks)
+
+
+class TestBulkImport:
+    def test_bulk_import_dashes_and_duplicates(self, vendor_token):
+        uniq = secrets.token_hex(3)
+        text = _build_bulk_text(4, uniq, lines_per=5)
+        # Insert a duplicate of block 0 at the end to force 1 dup skip
+        text += "\n--------------------------------------------------\n" + "\n".join([
+            f"Product: TEST_BULK_{uniq}", "Plan: Yearly", "Region: Global",
+            f"License key: KEY-{uniq}-0000", "Activation: Account > Licenses"])
+        payload = {
+            "text": text, "separator": "dashes",
+            # lines 0,1,2 are public; line 3 is license (hidden); line 4 is activation (hidden)
+            "public_lines": [0, 1, 2], "title_line": 0,
+            "title_prefix": "Item", "deliver": "all",
+            "category": "Software Licenses", "price": 7.5, "tags": ["bulk", "test"],
+        }
+        r = requests.post(f"{API}/vendor/products/bulk", headers=_h(vendor_token), json=payload)
+        assert r.status_code == 200, r.text
+        d = r.json()
+        assert d["created"] == 4, d
+        assert d["skipped"] == 1, d
+        batch_id = d["batch_id"]
+
+        # Vendor should see 4 pending products in this batch
+        prods = requests.get(f"{API}/vendor/products", headers=_h(vendor_token)).json()
+        batch_prods = [p for p in prods if p.get("batch_id") == batch_id]
+        assert len(batch_prods) == 4
+        for p in batch_prods:
+            assert p["status"] == "pending"
+            assert p["stock_count"] == 1
+            assert p["delivery_type"] == "keys"
+            assert p["title"].startswith(f"Product: TEST_BULK_{uniq}")
+            assert p["preview_lines"] == [f"Product: TEST_BULK_{uniq}", "Plan: Yearly", "Region: Global"]
+            # description equals public lines joined (hidden lines not exposed to vendor list either in description)
+            assert "License key" not in p["description"]
+
+        # Store for other tests via class attr style - use module-level setattr
+        TestBulkImport.batch_id = batch_id
+        TestBulkImport.uniq = uniq
+        TestBulkImport.batch_pids = [p["id"] for p in batch_prods]
+
+    def test_bulk_public_products_hide_hidden_lines(self, vendor_token, admin_token):
+        # Approve batch
+        bid = TestBulkImport.batch_id
+        r = requests.post(f"{API}/admin/batches/{bid}/approve", headers=_h(admin_token), json={"price": 9.0})
+        assert r.status_code == 200, r.text
+        assert r.json()["approved"] == 4
+
+        # Public catalog: delivery_content excluded; hidden lines not in description
+        for pid in TestBulkImport.batch_pids:
+            pub = requests.get(f"{API}/products/{pid}")
+            assert pub.status_code == 200
+            data = pub.json()
+            assert "delivery_content" not in data
+            assert "License key" not in (data.get("description") or "")
+            assert data["price_cents"] == 900
+            # preview_lines included
+            assert data["preview_lines"][0].startswith("Product: TEST_BULK_")
+
+    def test_bulk_deliver_hidden_only(self, vendor_token):
+        """deliver='hidden' -> delivered key contains ONLY the hidden lines."""
+        uniq = secrets.token_hex(3)
+        text = _build_bulk_text(2, uniq, lines_per=5)
+        payload = {
+            "text": text, "separator": "dashes",
+            "public_lines": [0, 1, 2], "title_line": 0, "deliver": "hidden",
+            "category": "Software Licenses", "price": 3.0,
+        }
+        r = requests.post(f"{API}/vendor/products/bulk", headers=_h(vendor_token), json=payload)
+        assert r.status_code == 200, r.text
+        d = r.json()
+        assert d["created"] == 2
+        # Fetch the keys for one product and verify key content is hidden-lines-only
+        prods = requests.get(f"{API}/vendor/products", headers=_h(vendor_token)).json()
+        batch_prods = [p for p in prods if p.get("batch_id") == d["batch_id"]]
+        pid = batch_prods[0]["id"]
+        keys = requests.get(f"{API}/vendor/products/{pid}/keys", headers=_h(vendor_token)).json()
+        assert keys
+        # Vendor keys endpoint shows unmasked for available keys
+        k_content = keys[0]["key"]
+        assert "License key: KEY-" in k_content
+        assert "Activation:" in k_content
+        # Hidden-only: public lines should NOT be in the key
+        assert "Product: TEST_BULK_" not in k_content
+        assert "Plan: Yearly" not in k_content
+        # Clean up this batch
+        requests.delete(f"{API}/vendor/batches/{d['batch_id']}", headers=_h(vendor_token))
+
+    def test_bulk_purchase_delivers_full_multiline(self, admin_token):
+        """Buyer purchases a bulk item -> gets multi-line delivery, product becomes sold out."""
+        pid = TestBulkImport.batch_pids[0]
+        # Fresh buyer
+        email = f"TEST_bulkbuy_{secrets.token_hex(3)}@market.com"
+        reg = _register(email, "Buyer@123", "BB").json()
+        tok, uid = reg["token"], reg["user"]["id"]
+        requests.post(f"{API}/admin/users/{uid}/adjust", headers=_h(admin_token),
+                      json={"amount": 20, "reason": "TEST_bulkbuy"})
+        r = requests.post(f"{API}/orders", headers=_h(tok), json={"product_id": pid})
+        assert r.status_code == 200, r.text
+        order = r.json()["order"]
+        # Multi-line delivery - deliver='all' -> all 5 lines returned via license_key
+        assert order["license_key"] is not None
+        assert "\n" in order["license_key"]
+        assert "License key: KEY-" in order["license_key"]
+        assert "Product: TEST_BULK_" in order["license_key"]
+
+        # Product now sold out
+        r2 = requests.get(f"{API}/products/{pid}")
+        # After buying the sole key, stock=0; product still "approved" so endpoint returns it
+        if r2.status_code == 200:
+            assert r2.json()["stock_count"] == 0
+        # Second buy should 400
+        r3 = requests.post(f"{API}/orders", headers=_h(tok), json={"product_id": pid})
+        assert r3.status_code == 400
+
+        TestBulkImport.sold_pid = pid
+
+    def test_vendor_delete_single_product_keeps_past_orders(self, vendor_token):
+        """Delete the sold bulk product; past buyer orders remain intact (orders not deleted)."""
+        pid = TestBulkImport.sold_pid
+        r = requests.delete(f"{API}/vendor/products/{pid}", headers=_h(vendor_token))
+        assert r.status_code == 200, r.text
+        d = r.json()
+        assert d["deleted"] == 1
+        # Public product gone
+        assert requests.get(f"{API}/products/{pid}").status_code == 404
+
+    def test_vendor_delete_batch_removes_rest(self, vendor_token):
+        bid = TestBulkImport.batch_id
+        r = requests.delete(f"{API}/vendor/batches/{bid}", headers=_h(vendor_token))
+        assert r.status_code == 200, r.text
+        # 3 remaining products + unsold keys removed (1 sold already)
+        assert r.json()["deleted"] == 3
+        # Verify batch gone
+        prods = requests.get(f"{API}/vendor/products", headers=_h(vendor_token)).json()
+        assert not [p for p in prods if p.get("batch_id") == bid]
+
+    def test_bulk_separator_blank(self, vendor_token):
+        uniq = secrets.token_hex(3)
+        blocks = []
+        for i in range(2):
+            blocks.append(f"Title: TEST_BLANK_{uniq}_{i}\nKey: BLANK-{uniq}-{i}")
+        text = "\n\n".join(blocks)
+        r = requests.post(f"{API}/vendor/products/bulk", headers=_h(vendor_token), json={
+            "text": text, "separator": "blank", "public_lines": [0], "title_line": 0,
+            "deliver": "all", "category": "Templates", "price": 1.0})
+        assert r.status_code == 200, r.text
+        assert r.json()["created"] == 2
+        # cleanup
+        requests.delete(f"{API}/vendor/batches/{r.json()['batch_id']}", headers=_h(vendor_token))
+
+    def test_bulk_empty_text_400(self, vendor_token):
+        r = requests.post(f"{API}/vendor/products/bulk", headers=_h(vendor_token), json={
+            "text": "\n\n", "separator": "dashes", "public_lines": [0], "deliver": "all",
+            "category": "Templates", "price": 1.0})
+        assert r.status_code == 400

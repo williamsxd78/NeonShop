@@ -506,7 +506,7 @@ async def vendor_bulk_import(body: BulkIn, user=Depends(require_approved_vendor)
             skipped += 1
             continue
         seen.add(secret)
-        preview = [b[i] for i in pub if i < len(b)]
+        preview = [b[i] for i in pub if i < len(b) and i != body.title_line]
         title = b[body.title_line] if body.title_line is not None and body.title_line < len(b) else f"{body.title_prefix} #{n}"
         pid = new_id()
         products.append({"id": pid, "vendor_id": user["id"], "vendor_name": vname, "title": title[:120],
@@ -771,7 +771,7 @@ async def admin_price_override(pid: str, body: PriceIn, user=Depends(admin_dep))
 
 @api.post("/admin/batches/{bid}/approve")
 async def admin_approve_batch(bid: str, body: ApproveProductIn, user=Depends(admin_dep)):
-    q = {"batch_id": bid, "status": {"$ne": "approved"}}
+    q = {"batch_id": bid, "status": "pending"}
     first = await db.products.find_one(q, {"_id": 0})
     if not first:
         raise HTTPException(404, "No pending items in this batch")
