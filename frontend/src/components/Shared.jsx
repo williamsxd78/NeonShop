@@ -25,7 +25,7 @@ export const PageHeader = ({ eyebrow, title, children }) => (
   <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between nk-rise">
     <div>
       {eyebrow && <div className="nk-eyebrow mb-2">{eyebrow}</div>}
-      <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl">{title}</h1>
+      <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{title}</h1>
     </div>
     {children}
   </div>
@@ -34,7 +34,7 @@ export const PageHeader = ({ eyebrow, title, children }) => (
 export const Stat = ({ label, value, accent = "#22C55E", testId }) => (
   <div className="nk-card p-5" data-testid={testId}>
     <div className="nk-label">{label}</div>
-    <div className="font-mono text-2xl font-semibold" style={{ color: accent }}>{value}</div>
+    <div className="font-mono text-xl" style={{ color: accent }}>{value}</div>
   </div>
 );
 

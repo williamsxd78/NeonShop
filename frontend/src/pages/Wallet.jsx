@@ -15,7 +15,7 @@ export default function Wallet() {
       <PageHeader eyebrow="Wallet · USD equivalent" title="Wallet">
         <div className="nk-card px-6 py-4 text-right">
           <div className="nk-label">Available balance</div>
-          <div data-testid="wallet-balance" className="font-mono text-3xl font-semibold text-[#4ADE80]">{money(w?.balance_cents ?? user?.balance_cents)}</div>
+          <div data-testid="wallet-balance" className="font-mono text-2xl text-[#4ADE80]">{money(w?.balance_cents ?? user?.balance_cents)}</div>
         </div>
       </PageHeader>
       <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">

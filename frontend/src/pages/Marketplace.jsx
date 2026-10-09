@@ -34,7 +34,7 @@ export default function Marketplace() {
     <div>
       <div className="mb-5 flex items-center gap-3 nk-rise">
         {vendor && <button onClick={() => setParams({})} data-testid="clear-vendor-filter" className="grid h-11 w-11 place-items-center rounded-xl border border-[#272B29] bg-[#171A19] text-slate-300"><ArrowLeft size={18} /></button>}
-        <h1 className="font-display text-3xl font-bold tracking-tight">{vendor && items?.[0] ? items[0].vendor_name : "Shop"}</h1>
+        <h1 className="font-display text-2xl font-semibold tracking-tight">{vendor && items?.[0] ? items[0].vendor_name : "Shop"}</h1>
         <div className="ml-auto flex items-center gap-2">
           {user && <Link to="/wallet" data-testid="shop-balance" className="rounded-lg border border-[#272B29] bg-[#121413] px-3 py-2 font-mono text-xs text-slate-500">Balance <span className="ml-1 font-semibold text-[#4ADE80]">{money(user.balance_cents)}</span></Link>}
           {user && <Link to="/vault" data-testid="shop-my-keys" className="hidden rounded-lg border border-[#272B29] bg-[#171A19] px-3 py-2 text-xs font-semibold text-slate-300 sm:block">My Keys</Link>}

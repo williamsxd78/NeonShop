@@ -38,7 +38,7 @@ export function AdminOverview({ stats, go }) {
         {q.map(([k, l]) => (
           <button key={k} data-testid={`overview-queue-${k}`} onClick={() => go(k)} className="nk-card nk-card-hover p-5 text-left">
             <div className="nk-label">{l}</div>
-            <div className={`font-mono text-3xl font-semibold ${stats.pending[k] ? "text-[#FFB800]" : "text-slate-500"}`}>{stats.pending[k]}</div>
+            <div className={`font-mono text-2xl ${stats.pending[k] ? "text-[#FFB800]" : "text-slate-500"}`}>{stats.pending[k]}</div>
           </button>
         ))}
       </div>

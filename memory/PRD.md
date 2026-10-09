@@ -49,3 +49,6 @@ Multi-vendor, wallet-based B2B marketplace for digital goods (license keys/codes
 - Vendor multi-select (row checkboxes, select all, select batch), with bulk Set price (sends listings back to admin review) and bulk Delete (permanent)
 - Buyer filters: public "Key: Value" lines from bulk imports become attributes; the marketplace shows a dropdown per key (e.g. Region) with counts and AND filtering; GET /api/products/facets, /api/products?attrs=JSON
 - Tested: 52/52 backend tests and 100% of frontend flows passed (iteration_4)
+
+## Iteration 5 (2026-06)
+- Slimmer UI site-wide: root font-size 14px (all rem sizing ~12% smaller), lighter weights (bold->600, semibold->500), smaller page titles, prices and the account menu

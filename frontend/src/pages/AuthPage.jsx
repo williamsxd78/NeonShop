@@ -53,7 +53,7 @@ export default function AuthPage({ mode }) {
       <div className="relative z-10 mx-auto w-full max-w-md nk-rise">
         <Link to="/" data-testid="auth-brand" className="mb-3 flex items-center justify-center gap-3">
           <span className="grid h-11 w-11 place-items-center rounded-xl text-[#4ADE80] drop-shadow-[0_0_12px_rgba(34,197,94,0.6)]"><Zap size={30} /></span>
-          <span className="font-display text-4xl font-bold tracking-tight">Neon<span className="text-[#4ADE80]">Keys</span></span>
+          <span className="font-display text-3xl font-semibold tracking-tight">Neon<span className="text-[#4ADE80]">Keys</span></span>
         </Link>
         <p className="mb-8 text-center font-display text-lg text-slate-400">{isLogin ? "Secure access portal" : "Create your account"}</p>
 
@@ -81,7 +81,7 @@ export default function AuthPage({ mode }) {
           {!isLogin && f.role === "vendor" && <p className="text-xs text-[#FFB800]">Vendor accounts require admin approval before listing products.</p>}
           {err && <p data-testid={`${mode}-error`} className="rounded-lg border border-[#FF2A5F]/30 bg-[#FF2A5F]/10 px-3 py-2 text-sm text-[#FF6B8B]">{err}</p>}
           <button data-testid={`${mode}-submit-button`} disabled={busy}
-            className="flex h-14 w-full items-center justify-center gap-3 rounded-xl bg-gradient-to-r from-[#22C55E] to-[#10B981] font-display text-lg font-semibold text-[#06140C] shadow-[0_8px_30px_rgba(34,197,94,0.25)] transition-transform active:scale-[0.98] disabled:opacity-60">
+            className="flex h-12 w-full items-center justify-center gap-3 rounded-xl bg-gradient-to-r from-[#22C55E] to-[#10B981] font-display text-base font-semibold text-[#06140C] shadow-[0_8px_30px_rgba(34,197,94,0.25)] transition-transform active:scale-[0.98] disabled:opacity-60">
             {isLogin ? <LogIn size={20} /> : <UserPlus size={20} />}{busy ? "Please wait…" : isLogin ? "Sign in" : "Create account"}
           </button>
           <p className="text-center text-[15px] text-slate-400">
