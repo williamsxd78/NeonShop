@@ -129,10 +129,28 @@ DEFAULT_NOTICE = {"enabled": True, "tone": "amber", "title": "All sales final",
                   "highlight": "Every key is reserved atomically — never sold twice."}
 
 
+HERO_IMAGE = "https://static.prod-images.emergentagent.com/jobs/aa1a86a0-c392-4890-8a23-aea3c4b6e0fd/images/9bf8d4ba2c0cd43d5bf70bb282acec82bd2ce3325b4e1dbc64dd9a4f1c21fee9.jpeg"
+BANNER_IMAGE = "https://static.prod-images.emergentagent.com/jobs/aa1a86a0-c392-4890-8a23-aea3c4b6e0fd/images/7c31de66a2fa2f2eef91c77c81e87785fd8d213d5fe8f036d97f0c1e6b36e30e.jpeg"
+DEFAULT_HERO = {"enabled": True, "title": "MARKETPLACE", "subtitle": "{count} Products Available", "image": HERO_IMAGE}
+DEFAULT_BANNERS = [{"id": "welcome", "enabled": True, "title": "Verified vendors, instant delivery",
+                    "subtitle": "Top up with crypto and get your keys in seconds.", "button_text": "Browse vendors",
+                    "link": "/vendors", "image": BANNER_IMAGE}]
+DEFAULT_CATEGORY_STYLE = {"Software Licenses": {"icon": "key", "color": "#22D3EE"},
+                          "Templates": {"icon": "layout", "color": "#A855F7"},
+                          "Digital Assets": {"icon": "gem", "color": "#4ADE80"},
+                          "Subscriptions": {"icon": "repeat", "color": "#FFB800"},
+                          "Courses": {"icon": "graduation", "color": "#FF2A5F"}}
+
+
 async def get_settings() -> dict:
     s = await db.settings.find_one({"key": "global"}, {"_id": 0})
     s.setdefault("categories", list(CATEGORIES))
-    s["notice"] = {**DEFAULT_NOTICE, **(s.get("notice") or {})}
+    s["notice"] = {**DEFAULT_NOTICE, "starts_at": None, "ends_at": None, **(s.get("notice") or {})}
+    s["hero"] = {**DEFAULT_HERO, **(s.get("hero") or {})}
+    s.setdefault("banners", DEFAULT_BANNERS)
+    style = s.get("category_style") or {}
+    s["category_style"] = {c: style.get(c) or DEFAULT_CATEGORY_STYLE.get(c) or {"icon": "package", "color": "#22C55E"}
+                           for c in s["categories"]}
     return s
 
 

@@ -4,6 +4,8 @@ import { Search, RefreshCw, ArrowLeft, X, SlidersHorizontal } from "lucide-react
 import { api, money } from "@/lib/api";
 import { useSite } from "@/lib/site";
 import { NoticeBox } from "@/components/NoticeBox";
+import { ShopHero, BannerCarousel } from "@/components/ShopHero";
+import { CategoryIcon } from "@/components/CategoryIcon";
 import { useAuth } from "@/context/AuthContext";
 import { ProductCard } from "@/components/ProductCard";
 import { FeaturedVendors } from "@/pages/Vendors";
@@ -13,7 +15,7 @@ const SORTS = [["new", "Newest"], ["popular", "Best sellers"], ["price_asc", "Pr
 
 export default function Marketplace() {
   const { user } = useAuth();
-  const { categories, notice } = useSite();
+  const { categories, category_style: style, notice, hero, banners, product_count } = useSite();
   const [params, setParams] = useSearchParams();
   const vendor = params.get("vendor") || "";
   const [items, setItems] = useState(null);
@@ -35,9 +37,11 @@ export default function Marketplace() {
 
   return (
     <div>
+      {hero?.enabled && !vendor && <ShopHero hero={hero} count={product_count} />}
+      {!vendor && <BannerCarousel banners={banners} />}
       <div className="mb-5 flex items-center gap-3 nk-rise">
         {vendor && <button onClick={() => setParams({})} data-testid="clear-vendor-filter" className="grid h-11 w-11 place-items-center rounded-xl border border-[#272B29] bg-[#171A19] text-slate-300"><ArrowLeft size={18} /></button>}
-        <h1 className="font-display text-2xl font-semibold tracking-tight">{vendor && items?.[0] ? items[0].vendor_name : "Shop"}</h1>
+        {(vendor || !hero?.enabled) && <h1 className="font-display text-2xl font-semibold tracking-tight">{vendor && items?.[0] ? items[0].vendor_name : "Shop"}</h1>}
         <div className="ml-auto flex items-center gap-2">
           {user && <Link to="/wallet" data-testid="shop-balance" className="rounded-lg border border-[#272B29] bg-[#121413] px-3 py-2 font-mono text-xs text-slate-500">Balance <span className="ml-1 font-semibold text-[#4ADE80]">{money(user.balance_cents)}</span></Link>}
           {user && <Link to="/vault" data-testid="shop-my-keys" className="hidden rounded-lg border border-[#272B29] bg-[#171A19] px-3 py-2 text-xs font-semibold text-slate-300 sm:block">My Keys</Link>}
@@ -55,12 +59,18 @@ export default function Marketplace() {
       </div>
 
       <div className="no-scrollbar mb-5 flex gap-2 overflow-x-auto">
-        {["", ...categories].map((c) => (
-          <button key={c || "all"} data-testid={`category-tab-${(c || "all").toLowerCase().replace(/ /g, "-")}`} onClick={() => setCat(c)}
-            className={`whitespace-nowrap rounded-lg border px-4 py-2 text-sm font-semibold transition-colors ${cat === c ? "border-[#22C55E] bg-[#22C55E] text-[#0A0B0B]" : "border-[#272B29] bg-[#171A19] text-slate-400 hover:text-white"}`}>
-            {c || "All"}
-          </button>
-        ))}
+        {["", ...categories].map((c) => {
+          const st = c ? style[c] || {} : { color: "#22C55E" };
+          const on = cat === c;
+          return (
+            <button key={c || "all"} data-testid={`category-tab-${(c || "all").toLowerCase().replace(/ /g, "-")}`} onClick={() => setCat(c)}
+              style={on ? { borderColor: `${st.color}99`, background: `${st.color}1F`, color: st.color } : undefined}
+              className={`flex items-center gap-2 whitespace-nowrap rounded-lg border px-4 py-2 text-sm transition-colors ${on ? "" : "border-[#272B29] bg-[#171A19] text-slate-400 hover:text-white"}`}>
+              {c && <CategoryIcon name={st.icon} size={14} style={on ? undefined : { color: st.color }} />}
+              {c || "All"}
+            </button>
+          );
+        })}
       </div>
 
       {facets.length > 0 && (
@@ -80,7 +90,7 @@ export default function Marketplace() {
         </div>
       )}
 
-      {notice?.enabled && <div className="mb-6"><NoticeBox n={notice} /></div>}
+      {notice?.active && <div className="mb-6"><NoticeBox n={notice} /></div>}
 
       {!vendor && !q && !cat && <FeaturedVendors />}
 

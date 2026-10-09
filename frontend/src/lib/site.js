@@ -18,5 +18,5 @@ export function useSite() {
     if (!cache) reloadSite();
     return () => subs.delete(setSite);
   }, []);
-  return site || { categories: [], notice: null };
+  return site || { categories: [], category_style: {}, notice: null, hero: null, banners: [], product_count: 0 };
 }

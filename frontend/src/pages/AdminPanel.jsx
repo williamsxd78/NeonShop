@@ -18,7 +18,7 @@ const SECTIONS = [
   ["vendors", "Vendor requests", UserCheck],
   ["listings", "Listing requests", ListChecks],
   ["settings", "Commission & wallets", Settings],
-  ["site", "Shop notice & categories", LayoutTemplate],
+  ["site", "Shop content", LayoutTemplate],
   ["users", "Users", Users],
   ["audit", "Audit log", ScrollText],
 ];

@@ -165,16 +165,50 @@ class NoticeIn(BaseModel):
     title: str = Field(default="", max_length=80)
     body: str = Field(default="", max_length=600)
     highlight: str = Field(default="", max_length=200)
+    starts_at: Optional[datetime] = None
+    ends_at: Optional[datetime] = None
 
 
 class CategoryIn(BaseModel):
     name: str = Field(min_length=1, max_length=40)
     original: Optional[str] = None
+    icon: str = Field(default="package", max_length=30)
+    color: str = Field(default="#22C55E", pattern=r"^#[0-9A-Fa-f]{6}$")
+
+
+SAFE_LINK = r"^(/[^\s]*|https?://[^\s]+)?$"
+
+
+class HeroIn(BaseModel):
+    enabled: bool = True
+    title: str = Field(default="", max_length=60)
+    subtitle: str = Field(default="", max_length=120)
+    image: str = Field(default="", max_length=600)
+
+
+class BannerIn(BaseModel):
+    id: Optional[str] = None
+    enabled: bool = True
+    title: str = Field(default="", max_length=80)
+    subtitle: str = Field(default="", max_length=200)
+    button_text: str = Field(default="", max_length=30)
+    link: str = Field(default="", max_length=500, pattern=SAFE_LINK)
+    image: str = Field(min_length=1, max_length=600)
 
 
 class SiteIn(BaseModel):
     notice: Optional[NoticeIn] = None
     categories: Optional[List[CategoryIn]] = Field(default=None, min_length=1, max_length=30)
+    hero: Optional[HeroIn] = None
+    banners: Optional[List[BannerIn]] = Field(default=None, max_length=12)
+
+
+def notice_active(n: dict) -> bool:
+    now = datetime.now(timezone.utc)
+    def parse(v):
+        return datetime.fromisoformat(v) if v else None
+    st, en = parse(n.get("starts_at")), parse(n.get("ends_at"))
+    return bool(n.get("enabled")) and (not st or st <= now) and (not en or now < en)
 
 
 class AdjustIn(BaseModel):
@@ -265,7 +299,16 @@ async def categories():
 @api.get("/site")
 async def site():
     s = await get_settings()
-    return {"categories": s["categories"], "notice": s["notice"]}
+    return {"categories": s["categories"], "category_style": s["category_style"],
+            "notice": {**s["notice"], "active": notice_active(s["notice"])}, "hero": s["hero"],
+            "banners": [b for b in s["banners"] if b.get("enabled")],
+            "product_count": await db.products.count_documents({"status": "approved"})}
+
+
+@api.get("/admin/site")
+async def admin_get_site(user=Depends(admin_dep)):
+    s = await get_settings()
+    return {k: s[k] for k in ("categories", "category_style", "notice", "hero", "banners")} | {"notice_active": notice_active(s["notice"])}
 
 
 def parse_attrs(lines: List[str]) -> List[dict]:
@@ -909,7 +952,12 @@ async def admin_update_site(body: SiteIn, user=Depends(admin_dep)):
     s = await get_settings()
     upd = {}
     if body.notice is not None:
-        upd["notice"] = {k: (v.strip() if isinstance(v, str) else v) for k, v in body.notice.model_dump().items()}
+        n = body.notice
+        if n.starts_at and n.ends_at and n.ends_at <= n.starts_at:
+            raise HTTPException(400, "Notice end time must be after start time")
+        norm = lambda d: (d if d.tzinfo else d.replace(tzinfo=timezone.utc)).astimezone(timezone.utc).isoformat() if d else None
+        upd["notice"] = {**{k: (v.strip() if isinstance(v, str) else v) for k, v in n.model_dump(exclude={"starts_at", "ends_at"}).items()},
+                         "starts_at": norm(n.starts_at), "ends_at": norm(n.ends_at)}
         await audit(user, "settings.notice", None, details=f"enabled={body.notice.enabled}, title={body.notice.title[:40]}")
     if body.categories is not None:
         names = [c.name.strip() for c in body.categories]
@@ -926,10 +974,17 @@ async def admin_update_site(body: SiteIn, user=Depends(admin_dep)):
                 await db.products.update_many({"category": c.original}, {"$set": {"category": c.name.strip()}})
                 await db.orders.update_many({"category": c.original}, {"$set": {"category": c.name.strip()}})
         upd["categories"] = names
+        upd["category_style"] = {c.name.strip(): {"icon": c.icon, "color": c.color} for c in body.categories}
         await audit(user, "settings.categories", None, details=", ".join(names))
+    if body.hero is not None:
+        upd["hero"] = body.hero.model_dump()
+        await audit(user, "settings.hero", None, details=f"enabled={body.hero.enabled}, title={body.hero.title}")
+    if body.banners is not None:
+        upd["banners"] = [{**b.model_dump(), "id": b.id or new_id()} for b in body.banners]
+        await audit(user, "settings.banners", None, details=f"{len(body.banners)} banner(s)")
     if upd:
         await db.settings.update_one({"key": "global"}, {"$set": upd})
-    return await get_settings()
+    return await admin_get_site(user)
 
 
 @api.get("/admin/users")
