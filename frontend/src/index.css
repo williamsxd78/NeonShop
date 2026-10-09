@@ -1,0 +1,92 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    :root {
+        --background: 160 5% 4%;
+        --foreground: 210 40% 96%;
+        --card: 150 5% 9%;
+        --card-foreground: 210 40% 96%;
+        --popover: 150 5% 7%;
+        --popover-foreground: 210 40% 96%;
+        --primary: 142 71% 45%;
+        --primary-foreground: 228 25% 4%;
+        --secondary: 230 27% 14%;
+        --secondary-foreground: 210 40% 96%;
+        --muted: 230 27% 14%;
+        --muted-foreground: 215 20% 65%;
+        --accent: 230 27% 16%;
+        --accent-foreground: 210 40% 96%;
+        --destructive: 345 100% 58%;
+        --destructive-foreground: 0 0% 98%;
+        --border: 150 4% 16%;
+        --input: 150 4% 16%;
+        --ring: 142 71% 45%;
+        --radius: 0.75rem;
+    }
+}
+
+@layer base {
+    * { @apply border-border; }
+    body {
+        @apply bg-background text-foreground;
+        font-family: "Manrope", sans-serif;
+        -webkit-font-smoothing: antialiased;
+        background-color: #0A0B0B;
+        background-image:
+            radial-gradient(ellipse 60% 40% at 0% 0%, rgba(34, 197, 94, 0.06), transparent 60%),
+            radial-gradient(ellipse 50% 40% at 100% 10%, rgba(34, 211, 238, 0.04), transparent 60%);
+        background-attachment: fixed;
+    }
+    h1, h2, h3, h4, .font-display { font-family: "Outfit", sans-serif; }
+    .font-mono, code { font-family: "JetBrains Mono", monospace; }
+    ::selection { background: rgba(34, 197, 94, 0.3); color: #fff; }
+}
+
+@layer components {
+    .nk-card {
+        @apply rounded-xl border border-[#272B29] bg-[#171A19]/90;
+        background-image: radial-gradient(circle at top left, rgba(34, 197, 94, 0.05), transparent 60%);
+    }
+    .nk-card-hover {
+        transition: border-color .25s ease, box-shadow .25s ease, transform .25s ease;
+    }
+    .nk-card-hover:hover {
+        border-color: rgba(34, 197, 94, 0.45);
+        box-shadow: 0 0 24px rgba(34, 197, 94, 0.12);
+        transform: translateY(-2px);
+    }
+    .nk-btn {
+        @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold disabled:opacity-50 disabled:pointer-events-none;
+        transition: transform .15s ease, box-shadow .2s ease, background-color .2s ease;
+    }
+    .nk-btn:active { transform: scale(0.97); }
+    .nk-btn-primary { @apply nk-btn text-[#0A0B0B]; background: #22C55E; }
+    .nk-btn-primary:hover { box-shadow: 0 0 22px rgba(34, 197, 94, 0.45); }
+    .nk-btn-ghost { @apply nk-btn border border-[#272B29] bg-[#121413] text-slate-200 hover:border-[#22C55E]/50 hover:text-white; }
+    .nk-btn-danger { @apply nk-btn border border-[#FF2A5F]/40 bg-[#FF2A5F]/10 text-[#FF2A5F] hover:bg-[#FF2A5F]/20; }
+    .nk-btn-buy { @apply nk-btn rounded-lg border border-[#22C55E]/30 bg-[#22C55E]/15 text-[#4ADE80] hover:bg-[#22C55E]/25; }
+    .nk-btn-sm { @apply px-3.5 py-1.5 text-xs; }
+    .nk-input {
+        @apply w-full rounded-lg border border-[#272B29] bg-[#0E100F] px-3.5 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 outline-none;
+        transition: border-color .2s ease, box-shadow .2s ease;
+    }
+    .nk-input:focus { border-color: rgba(34, 197, 94, 0.6); box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.12); }
+    .nk-label { @apply mb-1.5 block text-[11px] font-mono uppercase tracking-wider text-slate-400; }
+    .nk-eyebrow { @apply text-[11px] font-mono uppercase tracking-[0.2em] text-[#22C55E]; }
+    .nk-table { @apply w-full text-sm; }
+    .nk-table th { @apply border-b border-[#272B29] px-3 py-2.5 text-left text-[11px] font-mono uppercase tracking-wider text-slate-500 font-medium whitespace-nowrap; }
+    .nk-table td { @apply border-b border-[#272B29]/60 px-3 py-3 align-middle text-slate-300; }
+    .nk-table tr:hover td { background: rgba(34, 197, 94, 0.025); }
+    .neon-text { background: linear-gradient(135deg, #4ADE80 0%, #22D3EE 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+}
+
+@keyframes nk-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.nk-rise { animation: nk-rise .45s ease both; }
+.grain::after {
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 1; opacity: .035;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }

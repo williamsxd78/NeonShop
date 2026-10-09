@@ -1,0 +1,118 @@
+{
+  "theme": {
+    "mode": "dark",
+    "style": "Dark Neon Cyberpunk & High-Tech Web3 Marketplace",
+    "archetype": "ELECTRIC & NEON / THE PERFORMANCE PRO",
+    "description": "High-contrast dark theme with electric cyan, neon green, and cyber violet accents. Styled with glowing card borders, tactical glassmorphism, monospaced data readouts, and mobile-first bottom navigation."
+  },
+  "colors": {
+    "background": {
+      "main": "#07080C",
+      "surface": "#0F111A",
+      "card": "#131622",
+      "card_hover": "#1A1E2E",
+      "overlay": "rgba(7, 8, 12, 0.85)"
+    },
+    "text": {
+      "primary": "#F1F5F9",
+      "secondary": "#94A3B8",
+      "muted": "#64748B",
+      "accent_cyan": "#00F0FF",
+      "accent_green": "#00FF66",
+      "accent_purple": "#A855F7"
+    },
+    "accent": {
+      "primary_cyan": "#00F0FF",
+      "secondary_purple": "#A855F7",
+      "success_green": "#00FF66",
+      "warning_amber": "#FFB800",
+      "danger_rose": "#FF2A5F"
+    },
+    "border": {
+      "default": "#1E2336",
+      "glow_cyan": "rgba(0, 240, 255, 0.4)",
+      "glow_green": "rgba(0, 255, 102, 0.4)",
+      "glow_purple": "rgba(168, 85, 247, 0.4)"
+    },
+    "gradients": {
+      "cyan_purple": "linear-gradient(135deg, #00F0FF 0%, #A855F7 100%)",
+      "dark_card_glow": "radial-gradient(circle at top left, rgba(0, 240, 255, 0.08), transparent 60%)",
+      "neon_button": "linear-gradient(90deg, #00F0FF 0%, #00FF66 100%)"
+    }
+  },
+  "typography": {
+    "font_family_headings": "Outfit, Space Grotesk, sans-serif",
+    "font_family_body": "Inter, system-ui, sans-serif",
+    "font_family_mono": "JetBrains Mono, Source Code Pro, monospace",
+    "scale": {
+      "h1": "text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight",
+      "h2": "text-2xl sm:text-3xl font-bold tracking-tight",
+      "h3": "text-xl sm:text-2xl font-semibold",
+      "h4": "text-lg font-medium",
+      "body": "text-sm sm:text-base leading-relaxed text-slate-300",
+      "small": "text-xs sm:text-sm text-slate-400",
+      "badge": "text-[11px] font-mono uppercase tracking-wider font-semibold"
+    }
+  },
+  "layout_and_navigation": {
+    "desktop": {
+      "top_nav": "Sticky header with backdrop blur (backdrop-blur-xl bg-[#07080C]/80 border-b border-[#1E2336]), brand logo with cyan glow, quick search input, balance badge with quick 'Add Funds' button, user vault, and role switcher (Buyer / Vendor / Admin).",
+      "layout_container": "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 md:pb-12"
+    },
+    "mobile": {
+      "bottom_nav": "Fixed bottom navigation bar (fixed bottom-0 left-0 right-0 z-50 bg-[#0F111A]/95 backdrop-blur-lg border-t border-[#1E2336] px-4 py-2 flex justify-around items-center md:hidden).",
+      "items": [
+        {"label": "Market", "icon": "Store", "route": "marketplace"},
+        {"label": "Vault Keys", "icon": "Key", "route": "vault"},
+        {"label": "Wallet", "icon": "Wallet", "route": "wallet"},
+        {"label": "Orders", "icon": "ShoppingBag", "route": "orders"},
+        {"label": "Menu/Admin", "icon": "Grid", "route": "dashboard"}
+      ]
+    }
+  },
+  "key_features_and_views": {
+    "marketplace": {
+      "components": "Category filter tabs (Software, Templates, Assets, Subscriptions, Courses), search bar with instant filter, sort dropdown ('Newest', 'Best Sellers', 'Price: Low to High'), and neon card grid.",
+      "card_style": "Card UI with subtle border-[#1E2336], hover:border-[#00F0FF]/50 hover:shadow-[0_0_20px_rgba(0,240,255,0.15)] transition-all group."
+    },
+    "product_detail_and_buy": {
+      "components": "Product hero gallery/banner, stock indicator ('12 Keys Available' in neon green), instant buy modal using internal wallet balance, confirmation with automatic key generation & key vault storage."
+    },
+    "wallet_and_add_funds": {
+      "components": "Wallet balance display with breakdown, crypto deposit modal/page with currency selector (BTC, USDT TRC20, LTC, ETH), target address + QR code, network mismatch warning banner, and TXID submit form creating a pending deposit request."
+    },
+    "keys_vault": {
+      "components": "Secure digital license vault with masked keys (e.g. XXXX-XXXX-9821), instant 'Copy Key' button, download asset button, purchase timestamp, and vendor details."
+    },
+    "vendor_dashboard": {
+      "components": "Vendor status badge, product listing editor (upload new product, manage key stock list line-by-line, set price, select category), sales analytics metrics, earnings overview, and withdrawal request submission."
+    },
+    "admin_panel": {
+      "structure": "Dedicated tabs / sub-sections for distinct request types to avoid confusion:",
+      "sections": [
+        "1. Deposit Verification Queue (Approve/Reject user TXIDs with manual credit to wallet)",
+        "2. Vendor Withdrawal Queue (Review & process vendor payout requests)",
+        "3. Vendor Approval Queue (Approve or reject new seller applications)",
+        "4. Listing Approval Queue (Review & approve digital products before public listing)",
+        "5. Price Override & Commission Settings (Global % commission & per-vendor custom rates)",
+        "6. Crypto Address Management (Configure active platform deposit addresses for BTC, USDT, LTC, ETH)",
+        "7. Analytics & Global Audit Log (Track system activity, total volume, active users, system logs)"
+      ]
+    }
+  },
+  "image_urls": {
+    "cyberpunk_banner": "https://images.unsplash.com/photo-1705510144116-cc4d88838b14?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDF8MHwxfHNlYXJjaHwyfHxjeWJlcnB1bmslMjBuZW9uJTIwdGVjaG5vbG9neSUyMGRpZ2l0YWwlMjBhYnN0cmFjdCUyMHNvZnR3YXJlJTIwYmFubmVyfGVufDB8fHx8MTc5MTU1ODI0NHww&ixlib=rb-4.1.0&q=85",
+    "digital_tunnel": "https://images.unsplash.com/photo-1663811459413-e9de4614f88f?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDF8MHwxfHNlYXJjaHwxfHxjeWJlcnB1bmslMjBuZW9uJTIwdGVjaG5vbG9neSUyMGRpZ2l0YWwlMjBhYnN0cmFjdCUyMHNvZnR3YXJlJTIwYmFubmVyfGVufDB8fHx8MTc5MTU1ODI0NHww&ixlib=rb-4.1.0&q=85",
+    "circuit_texture": "https://images.unsplash.com/photo-1645395759348-a0dd7ccf1602?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDF8MHwxfHNlYXJjaHw0fHxjeWJlcnB1bmslMjBuZW9uJTIwdGVjaG5vbG9neSUyMGRpZ2l0YWwlMjBhYnN0cmFjdCUyMHNvZnR3YXJlJTIwYmFubmVyfGVufDB8fHx8MTc5MTU1ODI0NHww&ixlib=rb-4.1.0&q=85",
+    "code_matrix": "https://images.unsplash.com/photo-1608742213509-815b97c30b36?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Njl8MHwxfHNlYXJjaHwyfHxmdXR1cmlzdGljJTIwc29mdHdhcmUlMjBjb2RlJTIwVUklMjBzY3JlZW4lMjBiYW5uZXJ8ZW58MHx8fHwxNzkxNTU4MjUwfDA&ixlib=rb-4.1.0&q=85",
+    "hud_dashboard": "https://images.unsplash.com/photo-1720962158937-7ea890052166?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Njl8MHwxfHNlYXJjaHwzfHxmdXR1cmlzdGljJTIwc29mdHdhcmUlMjBjb2RlJTIwVUklMjBzY3JlZW4lMjBiYW5uZXJ8ZW58MHx8fHwxNzkxNTU4MjUwfDA&ixlib=rb-4.1.0&q=85"
+  },
+  "instructions_to_main_agent": [
+    "Use React JSX syntax (not TypeScript) across components.",
+    "Ensure every interactive button, input, tab, card, and metric includes a distinct data-testid attribute in kebab-case (e.g. data-testid='buy-product-btn-1', data-testid='admin-deposit-queue-tab').",
+    "Include mobile bottom navigation for quick access on smaller viewports.",
+    "Implement Sonner toast notifications for wallet top-ups, key copies, order completions, and admin status updates.",
+    "Make sure Admin Panel has dedicated sub-tabs for each queue type (Deposits, Withdrawals, Vendor Approvals, Listing Approvals) as explicitly requested.",
+    "Ensure dark mode is strictly enforced with high-contrast text and neon accent badges."
+  ]
+}
