@@ -3,6 +3,22 @@ import { toast } from "sonner";
 import { api, errMsg, money, fmtDate, imgSrc } from "@/lib/api";
 import { useFetch } from "@/lib/useFetch";
 import { StatusBadge, Empty, FilterTabs, PromptDialog } from "@/components/Shared";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
+const Preview = ({ p, onClose }) => (
+  <Dialog open={!!p} onOpenChange={(o) => !o && onClose()}>
+    <DialogContent className="max-h-[90vh] overflow-y-auto border-[#272B29] bg-[#0E100F] sm:max-w-lg" data-testid="listing-preview-dialog">
+      <DialogHeader><DialogTitle className="font-display">{p?.title}</DialogTitle></DialogHeader>
+      {p && <div className="space-y-4 text-sm">
+        {p.image && <img src={imgSrc(p.image)} alt="" className="h-40 w-full rounded-lg object-cover" />}
+        <div><div className="nk-label">Shown to buyers</div><p className="whitespace-pre-line text-slate-300">{p.description || "-"}</p></div>
+        <div className="flex flex-wrap gap-1.5">{(p.tags || []).map((t) => <span key={t} className="rounded-md border border-[#272B29] px-2 py-0.5 font-mono text-[11px] uppercase text-slate-400">#{t}</span>)}</div>
+        <div><div className="nk-label">Buyer receives · {p.delivery_type === "content" ? "same content for all (unlimited)" : `unique key (${p.stock_count} in stock)`}</div>
+          <pre data-testid="listing-preview-content" className="max-h-48 overflow-auto whitespace-pre-wrap rounded-lg border border-[#A855F7]/25 bg-[#A855F7]/[0.06] p-3 font-mono text-xs">{p.delivery_content || "(no extra content)"}</pre></div>
+      </div>}
+    </DialogContent>
+  </Dialog>
+);
 
 export function AdminListings({ onChange }) {
   const [status, setStatus] = useState("pending");
@@ -10,6 +26,7 @@ export function AdminListings({ onChange }) {
   const [approve, setApprove] = useState(null);
   const [reject, setReject] = useState(null);
   const [price, setPrice] = useState(null);
+  const [preview, setPreview] = useState(null);
   const done = () => { reload(); onChange(); };
   const call = async (fn, msg) => { try { await fn(); toast.success(msg); done(); } catch (e) { toast.error(errMsg(e)); throw e; } };
 
@@ -27,9 +44,10 @@ export function AdminListings({ onChange }) {
                 <td className="text-xs">{p.vendor_name}</td>
                 <td className="font-mono">{money(p.vendor_price_cents ?? p.price_cents)}</td>
                 <td className="font-mono text-[#22C55E]">{money(p.price_cents)}</td>
-                <td className="font-mono">{p.stock_count}</td>
+                <td className="font-mono">{p.delivery_type === "content" ? "∞" : p.stock_count}</td>
                 <td><StatusBadge status={p.status} /></td>
                 <td className="whitespace-nowrap text-right">
+                  <button data-testid={`listing-preview-${p.id}`} onClick={() => setPreview(p)} className="nk-btn-ghost nk-btn-sm mr-2">Preview</button>
                   {p.status !== "approved" && <button data-testid={`listing-approve-${p.id}`} onClick={() => setApprove(p)} className="nk-btn-primary nk-btn-sm mr-2">Approve</button>}
                   {p.status !== "rejected" && <button data-testid={`listing-reject-${p.id}`} onClick={() => setReject(p)} className="nk-btn-danger nk-btn-sm mr-2">Reject</button>}
                   <button data-testid={`listing-price-${p.id}`} onClick={() => setPrice(p)} className="nk-btn-ghost nk-btn-sm">Price</button>
@@ -39,6 +57,7 @@ export function AdminListings({ onChange }) {
           </table>
         </div>
       )}
+      <Preview p={preview} onClose={() => setPreview(null)} />
       <PromptDialog testId="listing-approve" open={!!approve} onOpenChange={(o) => !o && setApprove(null)} title="Approve listing"
         description="Optionally override the vendor's price before going live." label="Live price (USD)" type="number"
         defaultValue={approve ? (approve.price_cents / 100).toFixed(2) : ""} confirmText="Approve & publish"

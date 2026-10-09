@@ -2,7 +2,7 @@ import os
 import uuid
 import secrets
 import asyncio
-from typing import Optional, Literal, Dict
+from typing import Optional, Literal, Dict, List
 
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, UploadFile, File, Query
 from fastapi.responses import Response
@@ -16,7 +16,7 @@ from core import (db, client, logger, CATEGORIES, COINS, APP_NAME, now_iso, new_
                   hash_password, verify_password, create_access_token, public_user, get_current_user,
                   require_role, require_approved_vendor, audit, notify, get_settings,
                   init_storage, put_object, get_object)
-from seed import seed_all
+from seed import seed_all, IMG as DEFAULT_IMAGES
 
 app = FastAPI()
 api = APIRouter(prefix="/api")
@@ -30,11 +30,15 @@ class RegisterIn(BaseModel):
     name: str = Field(min_length=1, max_length=80)
     role: Literal["buyer", "vendor"] = "buyer"
     store_name: Optional[str] = None
+    captcha_id: str
+    captcha_answer: str
 
 
 class LoginIn(BaseModel):
     email: EmailStr
     password: str
+    captcha_id: str
+    captcha_answer: str
 
 
 class ProfileIn(BaseModel):
@@ -47,6 +51,25 @@ class ProductIn(BaseModel):
     category: Literal["Software Licenses", "Templates", "Digital Assets", "Subscriptions", "Courses"]
     price: float = Field(gt=0, le=100000)
     image: Optional[str] = None
+    tags: List[str] = Field(default_factory=list, max_length=8)
+    delivery_type: Literal["keys", "content"] = "keys"
+    delivery_content: str = Field(default="", max_length=10000)
+
+
+def clean_tags(tags):
+    return list(dict.fromkeys(t.strip().lower()[:24] for t in tags if t.strip()))[:8]
+
+
+def product_fields(body: ProductIn) -> dict:
+    if body.delivery_type == "content" and not body.delivery_content.strip():
+        raise HTTPException(400, "Delivery content is required for 'same content for every buyer' products")
+    return {"title": body.title, "description": body.description, "category": body.category,
+            "price_cents": to_cents(body.price), "vendor_price_cents": to_cents(body.price),
+            "image": body.image or DEFAULT_IMAGES[body.category], "tags": clean_tags(body.tags),
+            "delivery_type": body.delivery_type, "delivery_content": body.delivery_content.strip()}
+
+
+PUBLIC_PRODUCT = {"_id": 0, "delivery_content": 0}
 
 
 class KeysIn(BaseModel):
@@ -111,8 +134,29 @@ class StatusIn(BaseModel):
 
 
 # ---------------- Auth ----------------
+@api.get("/auth/captcha")
+async def captcha():
+    a, b = secrets.randbelow(9) + 1, secrets.randbelow(9) + 1
+    op = secrets.choice(["+", "-", "×"])
+    if op == "-" and b > a:
+        a, b = b, a
+    ans = a + b if op == "+" else a - b if op == "-" else a * b
+    cid = new_id()
+    await db.captchas.insert_one({"id": cid, "answer": str(ans),
+                                  "expires_at": datetime.now(timezone.utc) + timedelta(minutes=10)})
+    return {"captcha_id": cid, "question": f"{a} {op} {b} = ?"}
+
+
+async def verify_captcha(cid: str, answer: str):
+    c = await db.captchas.find_one_and_delete({"id": cid})
+    exp = c and c["expires_at"].replace(tzinfo=timezone.utc)
+    if not c or exp < datetime.now(timezone.utc) or c["answer"] != answer.strip():
+        raise HTTPException(400, "Incorrect captcha answer. Please try again.")
+
+
 @api.post("/auth/register")
 async def register(body: RegisterIn):
+    await verify_captcha(body.captcha_id, body.captcha_answer)
     email = body.email.lower()
     if await db.users.find_one({"email": email}):
         raise HTTPException(400, "Email already registered")
@@ -129,6 +173,7 @@ async def register(body: RegisterIn):
 
 @api.post("/auth/login")
 async def login(body: LoginIn, request: Request):
+    await verify_captcha(body.captcha_id, body.captcha_answer)
     email = body.email.lower()
     ident = f"{request.client.host if request.client else 'x'}:{email}"
     att = await db.login_attempts.find_one({"identifier": ident})
@@ -177,7 +222,7 @@ async def list_products(q: str = "", category: str = "", sort: str = "new", vend
                         {"vendor_name": {"$regex": q, "$options": "i"}}]
     sorts = {"new": [("approved_at", -1)], "popular": [("sales_count", -1)],
              "price_asc": [("price_cents", 1)], "price_desc": [("price_cents", -1)]}
-    return await db.products.find(query, {"_id": 0}).sort(sorts.get(sort, sorts["new"])).to_list(500)
+    return await db.products.find(query, PUBLIC_PRODUCT).sort(sorts.get(sort, sorts["new"])).to_list(500)
 
 
 @api.get("/vendors")
@@ -196,7 +241,7 @@ async def public_vendors():
 
 @api.get("/products/{pid}")
 async def get_product(pid: str):
-    p = await db.products.find_one({"id": pid, "status": "approved"}, {"_id": 0})
+    p = await db.products.find_one({"id": pid, "status": "approved"}, PUBLIC_PRODUCT)
     if not p:
         raise HTTPException(404, "Product not found")
     return p
@@ -263,37 +308,45 @@ async def create_order(body: OrderIn, user=Depends(get_current_user)):
     if user["balance_cents"] < price:
         raise HTTPException(400, "Insufficient wallet balance")
     order_id = new_id()
-    key = await db.license_keys.find_one_and_update(
-        {"product_id": p["id"], "status": "available"},
-        {"$set": {"status": "reserved", "order_id": order_id, "buyer_id": user["id"], "reserved_at": now_iso()}},
-        sort=[("created_at", 1)], projection={"_id": 0}, return_document=ReturnDocument.AFTER)
-    if not key:
-        raise HTTPException(400, "Out of stock")
+    uses_keys = p.get("delivery_type", "keys") == "keys"
+    key = None
+    if uses_keys:
+        key = await db.license_keys.find_one_and_update(
+            {"product_id": p["id"], "status": "available"},
+            {"$set": {"status": "reserved", "order_id": order_id, "buyer_id": user["id"], "reserved_at": now_iso()}},
+            sort=[("created_at", 1)], projection={"_id": 0}, return_document=ReturnDocument.AFTER)
+        if not key:
+            raise HTTPException(400, "Out of stock")
     debited = await db.users.find_one_and_update(
         {"id": user["id"], "balance_cents": {"$gte": price}}, {"$inc": {"balance_cents": -price}},
         projection={"_id": 0, "balance_cents": 1}, return_document=ReturnDocument.AFTER)
     if not debited:
-        await db.license_keys.update_one({"id": key["id"]}, {"$set": {"status": "available"},
-                                                               "$unset": {"order_id": "", "buyer_id": ""}})
+        if key:
+            await db.license_keys.update_one({"id": key["id"]}, {"$set": {"status": "available"},
+                                                                   "$unset": {"order_id": "", "buyer_id": ""}})
         raise HTTPException(400, "Insufficient wallet balance")
+    secret = (await db.products.find_one({"id": p["id"]}, {"_id": 0, "delivery_content": 1})).get("delivery_content", "")
     vendor = await db.users.find_one({"id": p["vendor_id"]}, {"_id": 0})
     s = await get_settings()
     pct = vendor.get("commission_pct") if vendor and vendor.get("commission_pct") is not None else s["commission_pct"]
     commission = int(round(price * pct / 100))
     earning = price - commission
     order = {"id": order_id, "buyer_id": user["id"], "buyer_email": user["email"], "product_id": p["id"],
+             "delivery_type": p.get("delivery_type", "keys"),
              "product_title": p["title"], "category": p["category"], "image": p.get("image"),
              "vendor_id": p["vendor_id"], "vendor_name": p["vendor_name"], "price_cents": price,
              "commission_pct": pct, "commission_cents": commission, "vendor_earning_cents": earning,
-             "key_id": key["id"], "license_key": key["key"], "status": "delivered", "created_at": now_iso()}
+             "key_id": key["id"] if key else None, "license_key": key["key"] if key else None,
+             "delivery_content": secret, "status": "delivered", "created_at": now_iso()}
     await db.orders.insert_one(order)
-    await db.license_keys.update_one({"id": key["id"]}, {"$set": {"status": "sold", "sold_at": now_iso()}})
+    if key:
+        await db.license_keys.update_one({"id": key["id"]}, {"$set": {"status": "sold", "sold_at": now_iso()}})
     await db.users.update_one({"id": p["vendor_id"]}, {"$inc": {"earnings_cents": earning}})
-    await db.products.update_one({"id": p["id"]}, {"$inc": {"stock_count": -1, "sales_count": 1}})
+    await db.products.update_one({"id": p["id"]}, {"$inc": {"stock_count": -1 if key else 0, "sales_count": 1}})
     await audit(user, "order.purchase", order_id, -price, user["id"], f"{p['title']}")
     await audit(user, "vendor.earning", order_id, earning, p["vendor_id"],
                 f"Sale of {p['title']} (commission {pct}% = ${commission / 100:.2f})")
-    await notify(user["id"], "Order delivered", f"Your license key for {p['title']} is in your vault.",
+    await notify(user["id"], "Order delivered", f"Your purchase of {p['title']} is in your vault.",
                  "Order confirmation")
     await notify(p["vendor_id"], "New sale", f"{p['title']} sold. ${earning / 100:.2f} credited to earnings.")
     order.pop("_id", None)
@@ -367,9 +420,7 @@ async def vendor_products(user=Depends(require_role("vendor"))):
 @api.post("/vendor/products")
 async def vendor_create_product(body: ProductIn, user=Depends(require_approved_vendor)):
     p = {"id": new_id(), "vendor_id": user["id"], "vendor_name": user.get("store_name") or user["name"],
-         "title": body.title, "description": body.description, "category": body.category,
-         "price_cents": to_cents(body.price), "vendor_price_cents": to_cents(body.price), "image": body.image,
-         "status": "pending", "stock_count": 0, "sales_count": 0, "created_at": now_iso()}
+         **product_fields(body), "status": "pending", "stock_count": 0, "sales_count": 0, "created_at": now_iso()}
     await db.products.insert_one(p)
     p.pop("_id", None)
     await audit(user, "product.create", p["id"], details=f"{body.title} @ ${body.price:.2f}")
@@ -381,9 +432,7 @@ async def vendor_update_product(pid: str, body: ProductIn, user=Depends(require_
     p = await db.products.find_one({"id": pid, "vendor_id": user["id"]}, {"_id": 0})
     if not p:
         raise HTTPException(404, "Product not found")
-    upd = {"title": body.title, "description": body.description, "category": body.category,
-           "price_cents": to_cents(body.price), "vendor_price_cents": to_cents(body.price),
-           "image": body.image, "status": "pending", "updated_at": now_iso()}
+    upd = {**product_fields(body), "status": "pending", "updated_at": now_iso()}
     await db.products.update_one({"id": pid}, {"$set": upd})
     await audit(user, "product.update", pid, details=f"resubmitted for review @ ${body.price:.2f}")
     return {**p, **upd}
@@ -720,6 +769,7 @@ async def startup():
     await db.license_keys.create_index([("product_id", 1), ("key", 1)], unique=True)
     await db.license_keys.create_index([("product_id", 1), ("status", 1)])
     await db.login_attempts.create_index("identifier")
+    await db.captchas.create_index("expires_at", expireAfterSeconds=0)
     await seed_all()
     try:
         await asyncio.to_thread(init_storage)

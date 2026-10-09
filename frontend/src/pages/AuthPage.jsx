@@ -3,6 +3,7 @@ import { Link, Navigate, useNavigate } from "react-router-dom";
 import { Zap, ShoppingCart, Boxes } from "lucide-react";
 import { api, errMsg } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
+import { useCaptcha, CaptchaField } from "@/components/Captcha";
 
 export default function AuthPage({ mode }) {
   const isLogin = mode === "login";
@@ -11,17 +12,18 @@ export default function AuthPage({ mode }) {
   const [f, setF] = useState({ email: "", password: "", name: "", role: "buyer", store_name: "" });
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+  const cap = useCaptcha();
   if (user) return <Navigate to={user.role === "admin" ? "/admin" : user.role === "vendor" ? "/vendor" : "/"} replace />;
 
   const submit = async (e) => {
     e.preventDefault();
     setErr(""); setBusy(true);
     try {
-      const body = isLogin ? { email: f.email, password: f.password } : f;
+      const body = { ...(isLogin ? { email: f.email, password: f.password } : f), ...cap.payload };
       const { data } = await api.post(isLogin ? "/auth/login" : "/auth/register", body);
       signIn(data.token, data.user);
       nav(data.user.role === "admin" ? "/admin" : data.user.role === "vendor" ? "/vendor" : "/");
-    } catch (e2) { setErr(errMsg(e2)); } finally { setBusy(false); }
+    } catch (e2) { setErr(errMsg(e2)); cap.reload(); } finally { setBusy(false); }
   };
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
 
@@ -57,6 +59,7 @@ export default function AuthPage({ mode }) {
           {!isLogin && f.role === "vendor" && <div><label className="nk-label">Store name</label><input data-testid="register-store-input" className="nk-input" value={f.store_name} onChange={set("store_name")} /></div>}
           <div><label className="nk-label">Email</label><input data-testid={`${mode}-email-input`} className="nk-input" type="email" required value={f.email} onChange={set("email")} /></div>
           <div><label className="nk-label">Password</label><input data-testid={`${mode}-password-input`} className="nk-input" type="password" required minLength={6} value={f.password} onChange={set("password")} /></div>
+          <CaptchaField cap={cap} testPrefix={mode} />
           {!isLogin && f.role === "vendor" && <p className="text-xs text-[#FFB800]">Vendor accounts require admin approval before listing products.</p>}
           {err && <p data-testid={`${mode}-error`} className="text-sm text-[#FF2A5F]">{err}</p>}
           <button data-testid={`${mode}-submit-button`} disabled={busy} className="nk-btn-primary w-full">{busy ? "Please wait…" : isLogin ? "Log in" : "Create account"}</button>

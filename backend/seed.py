@@ -49,7 +49,9 @@ async def seed_all():
                 "id": pid, "vendor_id": vendor["id"], "vendor_name": "NeonSoft Labs", "title": title,
                 "description": desc, "category": cat, "price_cents": int(price * 100),
                 "vendor_price_cents": int(price * 100), "image": IMG[cat], "status": "approved",
-                "stock_count": 5, "sales_count": 0, "created_at": now_iso(), "approved_at": now_iso()})
+                "stock_count": 5, "sales_count": 0, "created_at": now_iso(), "approved_at": now_iso(),
+                "tags": ["instant", "global", cat.split()[0].lower()], "delivery_type": "keys",
+                "delivery_content": "Thanks for your purchase! Redeem your key on the official product portal. Keep it private."})
             for k in range(5):
                 await db.license_keys.insert_one({
                     "id": new_id(), "product_id": pid, "vendor_id": vendor["id"],

@@ -20,14 +20,14 @@ function ProductsTab({ products, reload }) {
             <thead><tr><th>Product</th><th>Category</th><th>Your price</th><th>Live price</th><th>Stock</th><th>Status</th><th /></tr></thead>
             <tbody>{products.map((p) => (
               <tr key={p.id} data-testid={`vendor-product-row-${p.id}`}>
-                <td className="font-medium text-slate-100">{p.title}{p.reason && <div className="text-xs text-[#FF2A5F]">{p.reason}</div>}</td>
+                <td className="font-medium text-slate-100">{p.title}<div className="font-mono text-[10px] uppercase text-slate-500">{p.delivery_type === "content" ? "content delivery" : "key delivery"}{p.tags?.length ? ` · #${p.tags.join(" #")}` : ""}</div>{p.reason && <div className="text-xs text-[#FF2A5F]">{p.reason}</div>}</td>
                 <td className="text-xs">{p.category}</td>
                 <td className="font-mono">{money(p.vendor_price_cents ?? p.price_cents)}</td>
                 <td className="font-mono text-[#22C55E]">{money(p.price_cents)}</td>
-                <td className="font-mono">{p.stock_count}</td>
+                <td className="font-mono">{p.delivery_type === "content" ? "∞" : p.stock_count}</td>
                 <td><StatusBadge status={p.status} /></td>
                 <td className="whitespace-nowrap text-right">
-                  <button data-testid={`vendor-keys-btn-${p.id}`} onClick={() => setKeysFor(p)} className="nk-btn-ghost nk-btn-sm mr-2">Keys</button>
+                  {p.delivery_type !== "content" && <button data-testid={`vendor-keys-btn-${p.id}`} onClick={() => setKeysFor(p)} className="nk-btn-ghost nk-btn-sm mr-2">Keys</button>}
                   <button data-testid={`vendor-edit-btn-${p.id}`} onClick={() => setEdit(p)} className="nk-btn-ghost nk-btn-sm">Edit</button>
                 </td>
               </tr>

@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { ArrowLeft, ShieldCheck, Zap, Copy, Package } from "lucide-react";
+import { ArrowLeft, ShieldCheck, Zap, Package } from "lucide-react";
 import { api, errMsg, money, imgSrc } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DeliveryView } from "@/components/DeliveryView";
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -23,7 +24,7 @@ export default function ProductDetail() {
     try {
       const { data } = await api.post("/orders", { product_id: id });
       setConfirm(false); setOrder(data.order);
-      toast.success("Key delivered to your vault");
+      toast.success("Delivered to your vault");
       refresh(); load();
     } catch (e) { toast.error(errMsg(e)); } finally { setBusy(false); }
   };
@@ -31,6 +32,8 @@ export default function ProductDetail() {
   if (p === null) return <div className="nk-card h-96 animate-pulse" />;
   if (p === false) return <div className="text-slate-400">Product not found. <Link to="/" className="text-[#22C55E]">Back to market</Link></div>;
   const short = user && user.balance_cents < p.price_cents;
+  const unlimited = p.delivery_type === "content";
+  const soldOut = !unlimited && p.stock_count < 1;
 
   return (
     <div className="nk-rise">
@@ -52,11 +55,12 @@ export default function ProductDetail() {
             <p className="mt-2 text-sm text-slate-500">Sold by <span className="text-slate-300">{p.vendor_name}</span> · {p.sales_count} sold</p>
             <div className="mt-6 flex items-end justify-between">
               <span data-testid="product-price" className="font-mono text-4xl font-semibold text-[#22C55E]">{money(p.price_cents)}</span>
-              <span data-testid="product-stock" className={`font-mono text-sm ${p.stock_count > 0 ? "text-[#4ADE80]" : "text-[#FF2A5F]"}`}>{p.stock_count > 0 ? `${p.stock_count} keys available` : "Out of stock"}</span>
+              <span data-testid="product-stock" className={`font-mono text-sm ${!soldOut ? "text-[#4ADE80]" : "text-[#FF2A5F]"}`}>{unlimited ? "Instant · unlimited" : p.stock_count > 0 ? `${p.stock_count} keys available` : "Out of stock"}</span>
             </div>
+            {p.tags?.length > 0 && <div className="mt-4 flex flex-wrap gap-1.5" data-testid="product-tags">{p.tags.map((t) => <span key={t} className="rounded-md border border-[#272B29] px-2 py-0.5 font-mono text-[11px] uppercase text-slate-400">#{t}</span>)}</div>}
             {user ? (
               <>
-                <button data-testid="buy-now-btn" disabled={p.stock_count < 1} onClick={() => (short ? nav("/wallet") : setConfirm(true))} className="nk-btn-primary mt-6 w-full py-3">
+                <button data-testid="buy-now-btn" disabled={soldOut} onClick={() => (short ? nav("/wallet") : setConfirm(true))} className="nk-btn-primary mt-6 w-full py-3">
                   <Zap size={16} />{short ? "Add funds to buy" : "Buy instantly"}
                 </button>
                 <p className="mt-3 text-center font-mono text-xs text-slate-500">Wallet balance: <span data-testid="detail-balance" className="text-slate-300">{money(user.balance_cents)}</span></p>
@@ -87,14 +91,8 @@ export default function ProductDetail() {
 
       <Dialog open={!!order} onOpenChange={(o) => !o && setOrder(null)}>
         <DialogContent className="border-[#4ADE80]/30 bg-[#121413]" data-testid="order-success-dialog">
-          <DialogHeader><DialogTitle className="font-display text-[#4ADE80]">Key delivered</DialogTitle></DialogHeader>
-          <div className="rounded-lg border border-[#272B29] bg-[#0A0B0B] p-4">
-            <div className="nk-label">License key</div>
-            <div className="flex items-center justify-between gap-3">
-              <code data-testid="delivered-key" className="break-all text-[#22C55E]">{order?.license_key}</code>
-              <button data-testid="copy-delivered-key" onClick={() => { navigator.clipboard.writeText(order.license_key); toast.success("Copied"); }} className="text-slate-400 hover:text-white"><Copy size={16} /></button>
-            </div>
-          </div>
+          <DialogHeader><DialogTitle className="font-display text-[#4ADE80]">Purchase delivered</DialogTitle></DialogHeader>
+          <div data-testid="delivered-goods">{order && <DeliveryView o={order} />}</div>
           <Link to="/vault" data-testid="go-to-vault" className="nk-btn-ghost w-full">Open vault</Link>
         </DialogContent>
       </Dialog>

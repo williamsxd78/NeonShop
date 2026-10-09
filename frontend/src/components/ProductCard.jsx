@@ -19,9 +19,12 @@ export const ProductCard = ({ p, i = 0 }) => (
     </div>
     <div className="flex flex-wrap gap-2">
       <span className={`${tag} bg-[#22D3EE]/10 text-[#22D3EE]`}>{p.category}</span>
-      {p.stock_count > 0
+      {p.delivery_type === "content"
+        ? <span className={`${tag} bg-[#A855F7]/15 text-[#C084FC]`}>unlimited</span>
+        : p.stock_count > 0
         ? <span className={`${tag} bg-[#A855F7]/15 text-[#C084FC]`}>{p.stock_count} in stock</span>
         : <span className={`${tag} bg-[#FF2A5F]/10 text-[#FF2A5F]`}>sold out</span>}
+      {(p.tags || []).slice(0, 3).map((t) => <span key={t} className={`${tag} border border-[#272B29] text-slate-400`}>#{t}</span>)}
       {p.sales_count > 0 && <span className={`${tag} text-slate-500`}>{p.sales_count} sold</span>}
     </div>
     <div className="mt-auto flex items-center justify-between">
