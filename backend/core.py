@@ -129,8 +129,8 @@ DEFAULT_NOTICE = {"enabled": True, "tone": "amber", "title": "All sales final",
                   "highlight": "Every key is reserved atomically — never sold twice."}
 
 
-HERO_IMAGE = "https://static.prod-images.emergentagent.com/jobs/aa1a86a0-c392-4890-8a23-aea3c4b6e0fd/images/9bf8d4ba2c0cd43d5bf70bb282acec82bd2ce3325b4e1dbc64dd9a4f1c21fee9.jpeg"
-BANNER_IMAGE = "https://static.prod-images.emergentagent.com/jobs/aa1a86a0-c392-4890-8a23-aea3c4b6e0fd/images/7c31de66a2fa2f2eef91c77c81e87785fd8d213d5fe8f036d97f0c1e6b36e30e.jpeg"
+HERO_IMAGE = "/assets/hero.jpeg"
+BANNER_IMAGE = "/assets/banner.jpeg"
 DEFAULT_HERO = {"enabled": True, "title": "MARKETPLACE", "subtitle": "{count} Products Available", "image": HERO_IMAGE}
 DEFAULT_BANNERS = [{"id": "welcome", "enabled": True, "title": "Verified vendors, instant delivery",
                     "subtitle": "Top up with crypto and get your keys in seconds.", "button_text": "Browse vendors",
@@ -154,9 +154,9 @@ async def get_settings() -> dict:
     return s
 
 
-# ---------------- Email (Emergent managed Resend) ----------------
+# ---------------- Email (EMAIL_PROVIDER: emergent | resend | none) ----------------
+EMAIL_PROVIDER = os.environ["EMAIL_PROVIDER"]
 EMAIL_BASE_URL = "https://integrations.emergentagent.com"
-EMAIL_KEY = os.environ["EMERGENT_EMAIL_KEY"]
 EMAIL_FROM_NAME = os.environ["EMAIL_FROM_NAME"]
 EMAIL_REPLY_TO = os.environ.get("EMAIL_REPLY_TO")
 
@@ -235,12 +235,20 @@ def _assert_safe_email(subject: str, html: str) -> None:
 
 async def send_email(*, to: str, subject: str, html: str):
     _assert_safe_email(subject, html)
-    payload = {"to": [to], "subject": subject, "html": html, "from_name": EMAIL_FROM_NAME}
-    if EMAIL_REPLY_TO:
-        payload["contact_email"] = EMAIL_REPLY_TO
+    if EMAIL_PROVIDER == "none":
+        return None
+    if EMAIL_PROVIDER == "resend":
+        payload = {"from": os.environ["EMAIL_FROM"], "to": [to], "subject": subject, "html": html}
+        if EMAIL_REPLY_TO:
+            payload["reply_to"] = EMAIL_REPLY_TO
+        url, headers = "https://api.resend.com/emails", {"Authorization": f"Bearer {os.environ['RESEND_API_KEY']}"}
+    else:
+        payload = {"to": [to], "subject": subject, "html": html, "from_name": EMAIL_FROM_NAME}
+        if EMAIL_REPLY_TO:
+            payload["contact_email"] = EMAIL_REPLY_TO
+        url, headers = f"{EMAIL_BASE_URL}/api/v1/email/send", {"X-Email-Key": os.environ["EMERGENT_EMAIL_KEY"]}
     async with httpx.AsyncClient(timeout=30) as c:
-        resp = await c.post(f"{EMAIL_BASE_URL}/api/v1/email/send",
-                            headers={"X-Email-Key": EMAIL_KEY}, json=payload)
+        resp = await c.post(url, headers=headers, json=payload)
     resp.raise_for_status()
     return resp.json().get("id")
 
@@ -263,7 +271,9 @@ async def _safe_send(user: dict, subject: str, title: str, body: str):
         logger.warning(f"Email send failed for {user.get('email')}: {e}")
 
 
-# ---------------- Object Storage ----------------
+# ---------------- Object Storage (STORAGE_MODE: emergent | local) ----------------
+STORAGE_MODE = os.environ["STORAGE_MODE"]
+LOCAL_DIR = Path(os.environ["LOCAL_STORAGE_DIR"]) if STORAGE_MODE == "local" else None
 STORAGE_BASE = (os.environ.get("INTEGRATION_PROXY_URL") or "").strip() or "https://integrations.emergentagent.com"
 STORAGE_URL = STORAGE_BASE.rstrip("/") + "/objstore/api/v1/storage"
 _storage_key = None
@@ -271,6 +281,9 @@ _storage_key = None
 
 def init_storage(force: bool = False):
     global _storage_key
+    if STORAGE_MODE == "local":
+        LOCAL_DIR.mkdir(parents=True, exist_ok=True)
+        return None
     if _storage_key and not force:
         return _storage_key
     resp = requests.post(f"{STORAGE_URL}/init", json={"emergent_key": os.environ["EMERGENT_LLM_KEY"]}, timeout=30)
@@ -279,7 +292,19 @@ def init_storage(force: bool = False):
     return _storage_key
 
 
+def _local_path(path: str) -> Path:
+    full = (LOCAL_DIR / path).resolve()
+    if not str(full).startswith(str(LOCAL_DIR.resolve()) + os.sep):
+        raise HTTPException(400, "Invalid path")
+    return full
+
+
 def put_object(path: str, data: bytes, content_type: str) -> dict:
+    if STORAGE_MODE == "local":
+        full = _local_path(path)
+        full.parent.mkdir(parents=True, exist_ok=True)
+        full.write_bytes(data)
+        return {"path": path, "size": len(data)}
     resp = requests.put(f"{STORAGE_URL}/objects/{path}",
                         headers={"X-Storage-Key": init_storage(), "Content-Type": content_type},
                         data=data, timeout=120)
@@ -288,6 +313,12 @@ def put_object(path: str, data: bytes, content_type: str) -> dict:
 
 
 def get_object(path: str):
+    if STORAGE_MODE == "local":
+        import mimetypes
+        full = _local_path(path)
+        if not full.is_file():
+            raise HTTPException(404, "File not found")
+        return full.read_bytes(), mimetypes.guess_type(full.name)[0] or "application/octet-stream"
     resp = requests.get(f"{STORAGE_URL}/objects/{path}", headers={"X-Storage-Key": init_storage()}, timeout=60)
     resp.raise_for_status()
     return resp.content, resp.headers.get("Content-Type", "application/octet-stream")

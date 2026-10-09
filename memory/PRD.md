@@ -75,3 +75,8 @@ Multi-vendor, wallet-based B2B marketplace for digital goods (license keys/codes
 - Admin "User details" section: searchable/filterable user list (name, email, role, balance); click a row to expand balance, products bought (grouped with count + spent), total spent, deposited, recent deposits, plus Add balance / Deduct
 - GET /api/admin/users/{uid}/details (hides license keys/delivery content)
 - Fixed the wallet adjust dialog (old 2-step prompt closed itself after step 1) -> single amount + reason dialog, shared with the Users tab
+
+## Iteration 11 (2026-06)
+- Support tickets + floating green chat button (/support, admin "Support tickets" section, notifications on reply) — iteration_8 100%
+- Self-hosted VPS bundle: install.sh (Docker, prompts, data import), deploy/docker-compose.yml (mongo, backend, Caddy web with auto HTTPS), deploy/{backend,web}.Dockerfile, Caddyfile, update/backup/restore scripts, VPS_INSTALL.md, deploy/initial-data DB dump
+- Backend env switches: STORAGE_MODE (emergent|local), EMAIL_PROVIDER (emergent|resend|none), SEED_DEMO; hero/banner images now bundled at /assets/

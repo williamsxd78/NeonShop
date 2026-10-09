@@ -38,6 +38,8 @@ async def seed_all():
         await db.settings.insert_one({"key": "global", "commission_pct": 10.0,
                                       "addresses": {c: f"REPLACE_WITH_YOUR_{c}_ADDRESS" for c in COINS}})
     await _upsert_user(os.environ["ADMIN_EMAIL"].lower(), os.environ["ADMIN_PASSWORD"], name="Admin", role="admin")
+    if os.environ["SEED_DEMO"] != "true":
+        return
     await _upsert_user("buyer@market.com", "Buyer@123", name="Demo Buyer", role="buyer")
     vendor, created = await _upsert_user("vendor@market.com", "Vendor@123", name="Demo Vendor", role="vendor",
                                          vendor_status="approved", store_name="NeonSoft Labs",

@@ -1,0 +1,16 @@
+**/node_modules
+**/.git
+.emergent
+.ruff_cache
+test_reports
+tests
+memory
+backend/.env
+backend/tests
+backend/__pycache__
+frontend/.env
+frontend/build
+deploy/.env
+deploy/data
+deploy/backups
+deploy/initial-data

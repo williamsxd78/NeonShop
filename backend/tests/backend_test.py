@@ -1497,3 +1497,197 @@ class TestIter7PromoBannerPersistence:
         assert welcome["title"] == "TEST Verified vendors"
         assert welcome["subtitle"] == "TEST Top up with crypto."
         assert welcome["button_text"] == "TEST Browse"
+
+
+
+# ---------------- Support tickets (iter-8) ----------------
+class TestIter8SupportTickets:
+    @classmethod
+    def setup_class(cls):
+        cls.btok = _login(*BUYER)
+        cls.vtok = _login(*VENDOR)
+        cls.atok = _login(*ADMIN)
+        cls.created_tids = []
+
+    @classmethod
+    def teardown_class(cls):
+        # Close test tickets so admin stats aren't polluted
+        for tid in cls.created_tids:
+            try:
+                requests.post(f"{API}/admin/tickets/{tid}/status", headers=_h(cls.atok),
+                              json={"status": "closed"}, timeout=20)
+            except Exception:
+                pass
+
+    def _create(self, tok, subject="TEST_subject hello support", topic="General",
+                message="TEST initial message body"):
+        r = requests.post(f"{API}/tickets", headers=_h(tok),
+                          json={"subject": subject, "topic": topic, "message": message})
+        assert r.status_code == 200, r.text
+        t = r.json()
+        self.__class__.created_tids.append(t["id"])
+        return t
+
+    # ---- Create ----
+    def test_create_ticket_ok_and_persisted(self):
+        t = self._create(self.btok, subject="TEST_create_001 need help")
+        assert t["ref"].startswith("TCK-")
+        assert t["status"] == "open"
+        assert t["unread_admin"] is True
+        assert t["unread_user"] is False
+        assert len(t["messages"]) == 1
+        assert t["messages"][0]["from_admin"] is False
+        assert "_id" not in t
+        # GET verifies persistence
+        g = requests.get(f"{API}/tickets/{t['id']}", headers=_h(self.btok))
+        assert g.status_code == 200
+        gt = g.json()
+        assert gt["id"] == t["id"] and gt["subject"] == t["subject"]
+
+    def test_create_ticket_short_subject_422(self):
+        r = requests.post(f"{API}/tickets", headers=_h(self.btok),
+                          json={"subject": "hi", "topic": "General", "message": "ok"})
+        assert r.status_code == 422
+
+    def test_create_ticket_bad_topic_422(self):
+        r = requests.post(f"{API}/tickets", headers=_h(self.btok),
+                          json={"subject": "TEST_subject_x", "topic": "Nope", "message": "hi there"})
+        assert r.status_code == 422
+
+    def test_create_ticket_requires_auth_401_or_403(self):
+        r = requests.post(f"{API}/tickets",
+                          json={"subject": "TEST_subject_y", "topic": "General", "message": "hi there"})
+        assert r.status_code in (401, 403)
+
+    def test_vendor_can_create_ticket(self):
+        t = self._create(self.vtok, subject="TEST_vendor_ticket")
+        assert t["user_role"] == "vendor"
+
+    # ---- List + security ----
+    def test_my_tickets_only_mine(self):
+        tb = self._create(self.btok, subject="TEST_mine_only buyer")
+        tv = self._create(self.vtok, subject="TEST_mine_only vendor")
+        rb = requests.get(f"{API}/tickets", headers=_h(self.btok))
+        assert rb.status_code == 200
+        ids = {x["id"] for x in rb.json()}
+        assert tb["id"] in ids
+        assert tv["id"] not in ids
+
+    def test_user_cannot_read_other_users_ticket_404(self):
+        t = self._create(self.btok, subject="TEST_cross_user_read")
+        r = requests.get(f"{API}/tickets/{t['id']}", headers=_h(self.vtok))
+        assert r.status_code == 404
+
+    def test_non_admin_forbidden_on_admin_tickets(self):
+        r = requests.get(f"{API}/admin/tickets", headers=_h(self.btok))
+        assert r.status_code == 403
+
+    def test_admin_can_list_tickets(self):
+        t = self._create(self.btok, subject="TEST_admin_list visible")
+        r = requests.get(f"{API}/admin/tickets", headers=_h(self.atok))
+        assert r.status_code == 200
+        assert any(x["id"] == t["id"] for x in r.json())
+
+    def test_admin_tickets_filter_open(self):
+        t = self._create(self.btok, subject="TEST_filter_open status check")
+        r = requests.get(f"{API}/admin/tickets?status=open", headers=_h(self.atok))
+        assert r.status_code == 200
+        for x in r.json():
+            assert x["status"] == "open"
+        assert any(x["id"] == t["id"] for x in r.json())
+
+    def test_admin_tickets_search(self):
+        unique = f"TEST_search_{secrets.token_hex(3)}"
+        t = self._create(self.btok, subject=unique)
+        r = requests.get(f"{API}/admin/tickets", headers=_h(self.atok), params={"q": unique})
+        assert r.status_code == 200
+        rows = r.json()
+        assert len(rows) >= 1 and rows[0]["id"] == t["id"]
+        # search by email
+        r2 = requests.get(f"{API}/admin/tickets", headers=_h(self.atok), params={"q": BUYER[0]})
+        assert r2.status_code == 200
+        assert any(x["user_email"] == BUYER[0] for x in r2.json())
+
+    # ---- Reply / status flow ----
+    def test_user_reply_keeps_open_and_flags_admin_unread(self):
+        t = self._create(self.btok, subject="TEST_reply_user")
+        # First admin reads to clear unread_admin
+        requests.get(f"{API}/admin/tickets/{t['id']}", headers=_h(self.atok))  # may or may not exist, use user route via admin
+        g = requests.get(f"{API}/tickets/{t['id']}", headers=_h(self.atok))
+        assert g.status_code == 200
+        # User follows up
+        r = requests.post(f"{API}/tickets/{t['id']}/messages", headers=_h(self.btok),
+                          json={"message": "TEST follow-up from user"})
+        assert r.status_code == 200
+        rt = r.json()
+        assert rt["status"] == "open"
+        assert rt["unread_admin"] is True
+        assert rt["unread_user"] is False
+        assert len(rt["messages"]) == 2
+
+    def test_admin_reply_sets_answered_and_notifies_user(self):
+        t = self._create(self.btok, subject="TEST_admin_reply")
+        # Count buyer notifications before
+        n0 = requests.get(f"{API}/notifications", headers=_h(self.btok)).json()
+        before_support = sum(1 for n in n0 if n.get("title") == "Support replied")
+        r = requests.post(f"{API}/tickets/{t['id']}/messages", headers=_h(self.atok),
+                          json={"message": "TEST admin reply here"})
+        assert r.status_code == 200
+        rt = r.json()
+        assert rt["status"] == "answered"
+        assert rt["unread_user"] is True
+        assert rt["unread_admin"] is False
+        assert rt["messages"][-1]["from_admin"] is True
+        # Notification created
+        n1 = requests.get(f"{API}/notifications", headers=_h(self.btok)).json()
+        after_support = sum(1 for n in n1 if n.get("title") == "Support replied")
+        assert after_support == before_support + 1
+
+    def test_user_get_clears_unread_user(self):
+        t = self._create(self.btok, subject="TEST_clear_unread")
+        requests.post(f"{API}/tickets/{t['id']}/messages", headers=_h(self.atok),
+                      json={"message": "TEST admin msg"})
+        # buyer fetches
+        r = requests.get(f"{API}/tickets/{t['id']}", headers=_h(self.btok))
+        assert r.status_code == 200
+        assert r.json()["unread_user"] is False
+        # listing shouldn't show unread anymore
+        lst = requests.get(f"{API}/tickets", headers=_h(self.btok)).json()
+        row = next(x for x in lst if x["id"] == t["id"])
+        assert row["unread_user"] is False
+
+    def test_close_blocks_user_reply_but_admin_can(self):
+        t = self._create(self.btok, subject="TEST_close_block")
+        r = requests.post(f"{API}/admin/tickets/{t['id']}/status", headers=_h(self.atok),
+                          json={"status": "closed"})
+        assert r.status_code == 200
+        # Verify status via GET
+        g = requests.get(f"{API}/tickets/{t['id']}", headers=_h(self.btok)).json()
+        assert g["status"] == "closed"
+        # Buyer cannot reply
+        rb = requests.post(f"{API}/tickets/{t['id']}/messages", headers=_h(self.btok),
+                           json={"message": "TEST reply after close"})
+        assert rb.status_code == 400
+        # Admin can reply (reopens-ish via answered status flip)
+        ra = requests.post(f"{API}/tickets/{t['id']}/messages", headers=_h(self.atok),
+                           json={"message": "TEST admin after close"})
+        assert ra.status_code == 200
+
+    def test_reopen_allows_user_reply(self):
+        t = self._create(self.btok, subject="TEST_reopen")
+        requests.post(f"{API}/admin/tickets/{t['id']}/status", headers=_h(self.atok),
+                      json={"status": "closed"})
+        r = requests.post(f"{API}/admin/tickets/{t['id']}/status", headers=_h(self.atok),
+                         json={"status": "open"})
+        assert r.status_code == 200
+        rb = requests.post(f"{API}/tickets/{t['id']}/messages", headers=_h(self.btok),
+                           json={"message": "TEST reply after reopen"})
+        assert rb.status_code == 200
+
+    # ---- admin stats ----
+    def test_admin_stats_includes_open_ticket_count(self):
+        t = self._create(self.btok, subject="TEST_stats_open")
+        s = requests.get(f"{API}/admin/stats", headers=_h(self.atok)).json()
+        assert "tickets" in s.get("pending", {})
+        assert isinstance(s["pending"]["tickets"], int)
+        assert s["pending"]["tickets"] >= 1
