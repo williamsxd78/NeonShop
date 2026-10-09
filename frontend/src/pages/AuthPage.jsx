@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
-import { Zap, ShoppingCart, Boxes, Mail, Lock, Eye, EyeOff, User, Store, ArrowLeft, LogIn, UserPlus, ArrowRight } from "lucide-react";
+import { Zap, Mail, Lock, Eye, EyeOff, User, Store, ArrowLeft, LogIn, UserPlus, ArrowRight } from "lucide-react";
 import { api, errMsg } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { useCaptcha, CaptchaField } from "@/components/Captcha";
@@ -16,11 +16,11 @@ const Field = ({ label, icon: Icon, right, children }) => (
 );
 const inp = "nk-input h-12 rounded-xl bg-[#0E100F] pl-11 text-[15px]";
 
-export default function AuthPage({ mode }) {
+export default function AuthPage({ mode, vendor = false }) {
   const isLogin = mode === "login";
   const { user, signIn } = useAuth();
   const nav = useNavigate();
-  const [f, setF] = useState({ email: "", password: "", confirm: "", name: "", role: "buyer", store_name: "" });
+  const [f, setF] = useState({ email: "", password: "", confirm: "", name: "", store_name: "" });
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [show, setShow] = useState(false);
@@ -34,7 +34,7 @@ export default function AuthPage({ mode }) {
     setBusy(true);
     try {
       const { confirm, ...rest } = f;
-      const body = { ...(isLogin ? { email: f.email, password: f.password } : rest), ...cap.payload };
+      const body = { ...(isLogin ? { email: f.email, password: f.password } : { ...rest, role: vendor ? "vendor" : "buyer" }), ...cap.payload };
       const { data } = await api.post(isLogin ? "/auth/login" : "/auth/register", body);
       signIn(data.token, data.user);
       nav(data.user.role === "admin" ? "/admin" : data.user.role === "vendor" ? "/vendor" : "/");
@@ -55,22 +55,13 @@ export default function AuthPage({ mode }) {
           <span className="grid h-11 w-11 place-items-center rounded-xl text-[#4ADE80] drop-shadow-[0_0_12px_rgba(34,197,94,0.6)]"><Zap size={30} /></span>
           <span className="font-display text-3xl font-semibold tracking-tight">Neon<span className="text-[#4ADE80]">Keys</span></span>
         </Link>
-        <p className="mb-8 text-center font-display text-lg text-slate-400">{isLogin ? "Secure access portal" : "Create your account"}</p>
+        {vendor && <div className="mb-2 flex justify-center"><span data-testid="vendor-portal-badge" className="inline-flex items-center gap-1.5 rounded-full border border-[#22C55E]/30 bg-[#22C55E]/10 px-3 py-1 font-mono text-[10px] uppercase tracking-wider text-[#4ADE80]"><Store size={12} />Vendor portal</span></div>}
+        <p className="mb-8 text-center font-display text-lg text-slate-400">{vendor ? (isLogin ? "Sign in to manage your store" : "Open your vendor store") : isLogin ? "Secure access portal" : "Create your account"}</p>
 
         <form onSubmit={submit} data-testid={`${mode}-form`} className="space-y-5 rounded-3xl border border-[#272B29] bg-[#161918]/90 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.45)] sm:p-8">
-          {!isLogin && <Link to="/login" data-testid="register-back-link" className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white"><ArrowLeft size={16} />Back</Link>}
-          {!isLogin && (
-            <div className="grid grid-cols-2 gap-2">
-              {[["buyer", "Buyer", ShoppingCart], ["vendor", "Vendor", Boxes]].map(([r, l, Icon]) => (
-                <button type="button" key={r} data-testid={`register-role-${r}`} onClick={() => setF({ ...f, role: r })}
-                  className={`flex h-12 items-center justify-center gap-2 rounded-xl border text-sm font-semibold transition-colors ${f.role === r ? "border-[#22C55E]/60 bg-[#22C55E]/10 text-[#4ADE80]" : "border-[#272B29] bg-[#0E100F] text-slate-400"}`}>
-                  <Icon size={16} />{l}
-                </button>
-              ))}
-            </div>
-          )}
+          {!isLogin && <Link to={vendor ? "/vendor/login" : "/login"} data-testid="register-back-link" className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white"><ArrowLeft size={16} />Back</Link>}
           {!isLogin && <Field label="Name" icon={User}><input data-testid="register-name-input" className={inp} required placeholder="Your name" value={f.name} onChange={set("name")} /></Field>}
-          {!isLogin && f.role === "vendor" && <Field label="Store name" icon={Store}><input data-testid="register-store-input" className={inp} placeholder="Your store name" value={f.store_name} onChange={set("store_name")} /></Field>}
+          {!isLogin && vendor && <Field label="Store name" icon={Store}><input data-testid="register-store-input" className={inp} required placeholder="Your store name" value={f.store_name} onChange={set("store_name")} /></Field>}
           <Field label="Email" icon={Mail}><input data-testid={`${mode}-email-input`} className={inp} type="email" required placeholder="Enter your email" value={f.email} onChange={set("email")} /></Field>
           <Field label="Password" icon={Lock}>
             <input data-testid={`${mode}-password-input`} className={`${inp} pr-12`} type={show ? "text" : "password"} required minLength={6} placeholder={isLogin ? "Enter your password" : "Create a password"} value={f.password} onChange={set("password")} />
@@ -78,7 +69,7 @@ export default function AuthPage({ mode }) {
           </Field>
           {!isLogin && <Field label="Confirm password" icon={Lock}><input data-testid="register-confirm-input" className={inp} type={show ? "text" : "password"} required minLength={6} placeholder="Confirm your password" value={f.confirm} onChange={set("confirm")} /></Field>}
           <CaptchaField cap={cap} testPrefix={mode} />
-          {!isLogin && f.role === "vendor" && <p className="text-xs text-[#FFB800]">Vendor accounts require admin approval before listing products.</p>}
+          {!isLogin && vendor && <p className="text-xs text-[#FFB800]">Vendor accounts require admin approval before listing products.</p>}
           {err && <p data-testid={`${mode}-error`} className="rounded-lg border border-[#FF2A5F]/30 bg-[#FF2A5F]/10 px-3 py-2 text-sm text-[#FF6B8B]">{err}</p>}
           <button data-testid={`${mode}-submit-button`} disabled={busy}
             className="flex h-12 w-full items-center justify-center gap-3 rounded-xl bg-gradient-to-r from-[#22C55E] to-[#10B981] font-display text-base font-semibold text-[#06140C] shadow-[0_8px_30px_rgba(34,197,94,0.25)] transition-transform active:scale-[0.98] disabled:opacity-60">
@@ -86,12 +77,16 @@ export default function AuthPage({ mode }) {
           </button>
           <p className="text-center text-[15px] text-slate-400">
             {isLogin ? "Don't have an account? " : "Already have an account? "}
-            <Link data-testid={`${mode}-switch-link`} to={isLogin ? "/register" : "/login"} className="inline-flex items-center gap-1 font-semibold text-[#4ADE80] hover:underline">
+            <Link data-testid={`${mode}-switch-link`} to={`${vendor ? "/vendor" : ""}${isLogin ? "/register" : "/login"}`} className="inline-flex items-center gap-1 font-semibold text-[#4ADE80] hover:underline">
               {isLogin ? <>Create account <ArrowRight size={15} /></> : "Sign in"}
             </Link>
           </p>
         </form>
-        <p className="mt-6 text-center font-mono text-xs text-slate-600">NeonKeys · {isLogin ? "Secure auth" : "Secure registration"}</p>
+        <p className="mt-6 text-center text-sm text-slate-400" data-testid="portal-switch">
+          {vendor ? <>Not a vendor? <Link data-testid="buyer-portal-link" to={isLogin ? "/login" : "/register"} className="font-semibold text-[#4ADE80] hover:underline">Buyer {isLogin ? "login" : "sign up"}</Link></>
+            : <>Are you a vendor? <Link data-testid="vendor-portal-link" to={isLogin ? "/vendor/login" : "/vendor/register"} className="inline-flex items-center gap-1 font-semibold text-[#4ADE80] hover:underline">Vendor {isLogin ? "login" : "sign up"} <ArrowRight size={14} /></Link></>}
+        </p>
+        <p className="mt-3 text-center font-mono text-xs text-slate-600">NeonKeys · {isLogin ? "Secure auth" : "Secure registration"}</p>
       </div>
     </div>
   );

@@ -67,3 +67,6 @@ Multi-vendor, wallet-based B2B marketplace for digital goods (license keys/codes
 - Admin "My store (sell)": embedded vendor dashboard; admin listings are auto-approved, sold as "NeonKeys Official", 100% platform revenue
 - Sold-out products are hidden from the shop list, facets, product count and vendor product counts (the product page stays reachable by direct link)
 - Banner text was already editable in Shop content -> Promo banners
+
+## Iteration 9 (2026-06)
+- Auth split: /login and /register are buyer-only (role toggle removed) with an "Are you a vendor? Vendor login" link; /vendor/login and /vendor/register are the vendor portal (badge, store name required, role=vendor), with a "Not a vendor? Buyer login" link back

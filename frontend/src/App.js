@@ -30,6 +30,8 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<AuthPage mode="login" />} />
           <Route path="/register" element={<AuthPage mode="register" />} />
+          <Route path="/vendor/login" element={<AuthPage mode="login" vendor />} />
+          <Route path="/vendor/register" element={<AuthPage mode="register" vendor />} />
           <Route element={<Layout />}>
             <Route path="/" element={<Marketplace />} />
             <Route path="/product/:id" element={<ProductDetail />} />
