@@ -61,3 +61,9 @@ Multi-vendor, wallet-based B2B marketplace for digital goods (license keys/codes
 ## Iteration 7 (2026-06)
 - Admin "Shop content": Marketplace header (title, subtitle with {count}, background image upload/URL, show/hide), promo banners (CRUD, reorder, live toggle, image upload, safe internal/external links, auto-sliding carousel), category icon (24 options) + color per tab, notice scheduling (show from / hide after, server-evaluated `active`)
 - Generated hero and banner images (green glass-cube vibe)
+
+## Iteration 8 (2026-06)
+- Admin manual deposit (Add-fund requests -> "Add funds manually": email, amount, coin, optional TXID (uniqueness enforced, case-insensitive), note), credited instantly with notification, email and audit
+- Admin "My store (sell)": embedded vendor dashboard; admin listings are auto-approved, sold as "NeonKeys Official", 100% platform revenue
+- Sold-out products are hidden from the shop list, facets, product count and vendor product counts (the product page stays reachable by direct link)
+- Banner text was already editable in Shop content -> Promo banners

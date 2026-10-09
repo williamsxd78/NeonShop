@@ -1255,3 +1255,245 @@ class TestIter6HeroBannersNotice:
                 cats_back.append({"name": c["name"], "original": c["name"], "icon": c["icon"], "color": c["color"]})
         r2 = requests.put(f"{API}/admin/site", headers=_h(self.atok), json={"categories": cats_back})
         assert r2.status_code == 200
+
+
+# ---------- Iteration 7: Manual deposit + Admin-as-vendor store ----------
+class TestIter7ManualDeposit:
+    @classmethod
+    def setup_class(cls):
+        cls.atok = _login(*ADMIN)
+        cls.btok = _login(*BUYER)
+
+    def test_manual_deposit_credits_wallet_instantly(self):
+        me_before = requests.get(f"{API}/auth/me", headers=_h(self.btok)).json()
+        txid = f"TEST_MAN_{secrets.token_hex(6)}"
+        body = {"email": BUYER[0], "amount": 12.5, "coin": "USDT_TRC20",
+                "txid": txid, "note": "TEST support ticket"}
+        r = requests.post(f"{API}/admin/deposits/manual", headers=_h(self.atok), json=body)
+        assert r.status_code == 200, r.text
+        d = r.json()
+        assert d["status"] == "approved"
+        assert d["manual"] is True
+        assert d["reviewed_by"] == ADMIN[0]
+        assert d["credited_cents"] == 1250
+        assert d["amount_cents"] == 1250
+        assert d["reference"].startswith("MAN-")
+        assert d["txid"] == txid.lower()
+
+        # Wallet credited
+        me_after = requests.get(f"{API}/auth/me", headers=_h(self.btok)).json()
+        assert me_after["balance_cents"] == me_before["balance_cents"] + 1250
+
+        # Appears under 'approved' filter
+        approved = requests.get(f"{API}/admin/deposits", headers=_h(self.atok),
+                                params={"status": "approved"}).json()
+        row = next((x for x in approved if x["reference"] == d["reference"]), None)
+        assert row is not None
+        assert row["manual"] is True
+        assert row["reviewed_by"] == ADMIN[0]
+
+        # Buyer gets a 'Deposit approved' notification
+        notifs = requests.get(f"{API}/notifications", headers=_h(self.btok)).json()
+        assert any(n.get("title") == "Deposit approved" and d["reference"] in n.get("body", "")
+                   for n in notifs)
+
+        # Audit entry
+        logs = requests.get(f"{API}/admin/audit", headers=_h(self.atok)).json()
+        assert any(l.get("action") == "deposit.manual" and l.get("target_id") == d["id"] for l in logs)
+
+    def test_manual_deposit_unknown_email_404(self):
+        r = requests.post(f"{API}/admin/deposits/manual", headers=_h(self.atok), json={
+            "email": f"no_such_user_{secrets.token_hex(3)}@market.com", "amount": 5,
+            "coin": "OTHER", "note": "TEST"})
+        assert r.status_code == 404
+
+    def test_manual_deposit_duplicate_txid_400(self):
+        txid = f"TEST_DUP_{secrets.token_hex(6)}"
+        base = {"email": BUYER[0], "amount": 1, "coin": "BTC", "txid": txid, "note": "TEST dup"}
+        r1 = requests.post(f"{API}/admin/deposits/manual", headers=_h(self.atok), json=base)
+        assert r1.status_code == 200, r1.text
+        r2 = requests.post(f"{API}/admin/deposits/manual", headers=_h(self.atok), json=base)
+        assert r2.status_code == 400, r2.text
+        assert "txid" in r2.text.lower()
+
+    def test_manual_deposit_blocks_normal_deposit_reuse(self, admin_token):
+        """A TXID used in a manual deposit cannot be reused by a normal deposit."""
+        txid = f"TEST_CROSS_{secrets.token_hex(6)}"
+        r = requests.post(f"{API}/admin/deposits/manual", headers=_h(self.atok), json={
+            "email": BUYER[0], "amount": 1, "coin": "BTC", "txid": txid, "note": "TEST cross"})
+        assert r.status_code == 200
+        # Now buyer tries normal deposit with same txid
+        dep = requests.post(f"{API}/wallet/deposits", headers=_h(self.btok),
+                            json={"coin": "BTC", "amount": 5}).json()
+        rdup = requests.post(f"{API}/wallet/deposits/{dep['id']}/txid",
+                             headers=_h(self.btok), json={"txid": txid})
+        assert rdup.status_code in (400, 500), f"Expected rejection, got {rdup.status_code}"
+
+    def test_manual_deposit_amount_zero_422(self):
+        r = requests.post(f"{API}/admin/deposits/manual", headers=_h(self.atok), json={
+            "email": BUYER[0], "amount": 0, "coin": "OTHER", "note": "TEST"})
+        assert r.status_code == 422
+
+    def test_manual_deposit_amount_negative_422(self):
+        r = requests.post(f"{API}/admin/deposits/manual", headers=_h(self.atok), json={
+            "email": BUYER[0], "amount": -10, "coin": "OTHER", "note": "TEST"})
+        assert r.status_code == 422
+
+    def test_manual_deposit_non_admin_403(self):
+        r = requests.post(f"{API}/admin/deposits/manual", headers=_h(self.btok), json={
+            "email": BUYER[0], "amount": 1, "coin": "OTHER", "note": "TEST"})
+        assert r.status_code == 403
+
+    def test_manual_deposit_optional_txid_works(self):
+        r = requests.post(f"{API}/admin/deposits/manual", headers=_h(self.atok), json={
+            "email": BUYER[0], "amount": 2, "coin": "OTHER", "note": "TEST no txid"})
+        assert r.status_code == 200, r.text
+        d = r.json()
+        assert d["status"] == "approved"
+        assert "txid" not in d or d.get("txid") in (None, "")
+
+
+class TestIter7AdminStore:
+    """Admin can list products as 'NeonKeys Official', approved instantly, 100% commission."""
+
+    @classmethod
+    def setup_class(cls):
+        cls.atok = _login(*ADMIN)
+        cls.btok = _login(*BUYER)
+        cls.vtok = _login(*VENDOR)
+        cls.created_pids = []
+        cls.created_batches = []
+
+    @classmethod
+    def teardown_class(cls):
+        for pid in cls.created_pids:
+            try:
+                requests.delete(f"{API}/vendor/products/{pid}", headers=_h(cls.atok))
+            except Exception:
+                pass
+        for bid in cls.created_batches:
+            try:
+                requests.delete(f"{API}/vendor/batches/{bid}", headers=_h(cls.atok))
+            except Exception:
+                pass
+
+    def test_admin_create_product_goes_live_instantly(self):
+        title = f"TEST_AdminProd_{secrets.token_hex(3)}"
+        r = requests.post(f"{API}/vendor/products", headers=_h(self.atok), json={
+            "title": title, "description": "official", "category": "Templates",
+            "price": 4.0, "delivery_type": "content", "delivery_content": "official-secret",
+        })
+        assert r.status_code == 200, r.text
+        p = r.json()
+        assert p["status"] == "approved"
+        assert p["vendor_name"] == "NeonKeys Official"
+        assert p["approved_at"]
+        self.__class__.created_pids.append(p["id"])
+        # Appears in public catalog
+        pub = requests.get(f"{API}/products/{p['id']}")
+        assert pub.status_code == 200
+        assert pub.json()["vendor_name"] == "NeonKeys Official"
+
+    def test_admin_bulk_import_approved_instantly(self):
+        uniq = secrets.token_hex(3)
+        blocks = []
+        for i in range(2):
+            blocks.append("\n".join([
+                f"Title: TEST_AdminBulk_{uniq}_{i}", "Plan: Pro",
+                f"License key: AK-{uniq}-{i:03d}",
+            ]))
+        text = "\n----\n".join(blocks)
+        r = requests.post(f"{API}/vendor/products/bulk", headers=_h(self.atok), json={
+            "text": text, "separator": "dashes", "public_lines": [0, 1], "title_line": 0,
+            "deliver": "all", "category": "Software Licenses", "price": 3.0})
+        assert r.status_code == 200, r.text
+        d = r.json()
+        assert d["created"] == 2
+        bid = d["batch_id"]
+        self.__class__.created_batches.append(bid)
+        # Admin's bulk imports go live immediately
+        prods = requests.get(f"{API}/vendor/products", headers=_h(self.atok)).json()
+        mine = [p for p in prods if p.get("batch_id") == bid]
+        assert len(mine) == 2
+        for p in mine:
+            assert p["status"] == "approved"
+            assert p["vendor_name"] == "NeonKeys Official"
+            # Visible publicly
+            assert requests.get(f"{API}/products/{p['id']}").status_code == 200
+
+    def test_buyer_purchase_admin_product_100pct_commission(self):
+        # Create admin product with a single key
+        title = f"TEST_AdmBuy_{secrets.token_hex(3)}"
+        rc = requests.post(f"{API}/vendor/products", headers=_h(self.atok), json={
+            "title": title, "description": "x", "category": "Templates", "price": 5.0,
+        })
+        assert rc.status_code == 200
+        pid = rc.json()["id"]
+        self.__class__.created_pids.append(pid)
+        rk = requests.post(f"{API}/vendor/products/{pid}/keys", headers=_h(self.atok),
+                           json={"keys": f"ADMKEY-{secrets.token_hex(3)}"})
+        assert rk.status_code == 200
+        # Fund fresh buyer
+        email = f"TEST_admbuy_{secrets.token_hex(3)}@market.com"
+        reg = _register(email, "Buyer@123", "AB").json()
+        btok, uid = reg["token"], reg["user"]["id"]
+        requests.post(f"{API}/admin/users/{uid}/adjust", headers=_h(self.atok),
+                      json={"amount": 10, "reason": "TEST_adminbuy"})
+        r = requests.post(f"{API}/orders", headers=_h(btok), json={"product_id": pid})
+        assert r.status_code == 200, r.text
+        order = r.json()["order"]
+        assert order["commission_pct"] == 100
+        assert order["vendor_earning_cents"] == 0
+        assert order["commission_cents"] == order["price_cents"]
+        assert order["license_key"] is not None
+        assert order["vendor_name"] == "NeonKeys Official"
+        # Appears in admin My store -> Sales
+        sales = requests.get(f"{API}/vendor/sales", headers=_h(self.atok)).json()
+        assert any(s["id"] == order["id"] for s in sales)
+
+    def test_regression_normal_vendor_still_pending(self):
+        """Normal (non-admin) vendor products must remain pending review."""
+        title = f"TEST_RegVendor_{secrets.token_hex(3)}"
+        r = requests.post(f"{API}/vendor/products", headers=_h(self.vtok), json={
+            "title": title, "description": "x", "category": "Templates", "price": 2.0,
+        })
+        assert r.status_code == 200, r.text
+        p = r.json()
+        assert p["status"] == "pending"
+        assert p["vendor_name"] != "NeonKeys Official"
+        # Cleanup
+        requests.delete(f"{API}/vendor/products/{p['id']}", headers=_h(self.vtok))
+
+
+class TestIter7PromoBannerPersistence:
+    """Editing promo banner title/subtitle/button via PUT /admin/site updates /site."""
+
+    @classmethod
+    def setup_class(cls):
+        cls.atok = _login(*ADMIN)
+        s = requests.get(f"{API}/admin/site", headers=_h(cls.atok)).json()
+        cls.orig_banners = s["banners"]
+
+    @classmethod
+    def teardown_class(cls):
+        requests.put(f"{API}/admin/site", headers=_h(cls.atok),
+                     json={"banners": cls.orig_banners})
+
+    def test_edit_welcome_banner_reflected_publicly(self):
+        edited = []
+        for b in self.orig_banners:
+            if b.get("id") == "welcome":
+                edited.append({**b, "title": "TEST Verified vendors",
+                               "subtitle": "TEST Top up with crypto.",
+                               "button_text": "TEST Browse"})
+            else:
+                edited.append(b)
+        r = requests.put(f"{API}/admin/site", headers=_h(self.atok),
+                         json={"banners": edited})
+        assert r.status_code == 200, r.text
+        pub = requests.get(f"{API}/site").json()
+        welcome = next((b for b in pub["banners"] if b.get("id") == "welcome"), None)
+        assert welcome is not None
+        assert welcome["title"] == "TEST Verified vendors"
+        assert welcome["subtitle"] == "TEST Top up with crypto."
+        assert welcome["button_text"] == "TEST Browse"

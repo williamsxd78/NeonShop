@@ -311,7 +311,7 @@ async def site():
     return {"categories": s["categories"], "category_style": s["category_style"],
             "notice": {**s["notice"], "active": notice_active(s["notice"])}, "hero": s["hero"],
             "banners": [b for b in s["banners"] if b.get("enabled")],
-            "product_count": await db.products.count_documents({"status": "approved"})}
+            "product_count": await db.products.count_documents({"status": "approved", **IN_STOCK})}
 
 
 @api.get("/admin/site")
@@ -329,8 +329,11 @@ def parse_attrs(lines: List[str]) -> List[dict]:
     return out
 
 
+IN_STOCK = {"$or": [{"delivery_type": "content"}, {"stock_count": {"$gt": 0}}]}
+
+
 def base_query(category: str, vendor: str) -> dict:
-    query = {"status": "approved"}
+    query = {"status": "approved", "$and": [IN_STOCK]}
     if vendor:
         query["vendor_id"] = vendor
     if category:
@@ -360,9 +363,9 @@ async def list_products(q: str = "", category: str = "", sort: str = "new", vend
         if sel:
             query["attrs"] = {"$all": [{"$elemMatch": {"k": k, "v": v}} for k, v in sel.items()]}
     if q:
-        query["$or"] = [{"title": {"$regex": q, "$options": "i"}},
+        query["$and"].append({"$or": [{"title": {"$regex": q, "$options": "i"}},
                         {"description": {"$regex": q, "$options": "i"}},
-                        {"vendor_name": {"$regex": q, "$options": "i"}}]
+                        {"vendor_name": {"$regex": q, "$options": "i"}}]})
     sorts = {"new": [("approved_at", -1)], "popular": [("sales_count", -1)],
              "price_asc": [("price_cents", 1)], "price_desc": [("price_cents", -1)]}
     return await db.products.find(query, PUBLIC_PRODUCT).sort(sorts.get(sort, sorts["new"])).to_list(2000)
@@ -374,7 +377,7 @@ async def public_vendors():
                                   {"_id": 0, "id": 1, "store_name": 1, "name": 1, "created_at": 1}).to_list(500)
     stats = await db.products.aggregate([
         {"$match": {"status": "approved"}},
-        {"$group": {"_id": "$vendor_id", "products": {"$sum": 1}, "sales": {"$sum": "$sales_count"},
+        {"$group": {"_id": "$vendor_id", "products": {"$sum": {"$cond": [{"$or": [{"$eq": ["$delivery_type", "content"]}, {"$gt": ["$stock_count", 0]}]}, 1, 0]}}, "sales": {"$sum": "$sales_count"},
                     "categories": {"$addToSet": "$category"}}}]).to_list(500)
     by = {s["_id"]: s for s in stats}
     out = [{**v, "products": by.get(v["id"], {}).get("products", 0), "sales": by.get(v["id"], {}).get("sales", 0),
@@ -786,7 +789,7 @@ async def admin_manual_deposit(body: ManualDepositIn, user=Depends(admin_dep)):
            "status": "approved", "manual": True, "note": body.note, "reviewed_by": user["email"],
            "reviewed_at": now_iso(), "submitted_at": now_iso(), "created_at": now_iso()}
     if body.txid and body.txid.strip():
-        dep["txid"] = body.txid.strip()
+        dep["txid"] = body.txid.strip().lower()
     try:
         await db.deposits.insert_one(dep)
     except DuplicateKeyError:
