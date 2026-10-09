@@ -25,6 +25,15 @@ Multi-vendor, wallet-based B2B marketplace for digital goods (license keys/codes
 - Admin: overview/analytics, add-fund requests, withdrawal requests, vendor requests (+custom commission), listing requests (+price override), commission & wallet addresses, users (credit/debit, suspend), audit log
 - Tested: 22/22 backend tests and the frontend flows passed (iteration_1)
 
+## Iteration 2 (2026-06)
+- Math captcha (server-side, single-use, 10-min TTL) on login + register, drawn as a distorted canvas image with a refresh button
+- Login/register restyled after the user's reference (centered brand, icon inputs, password eye, confirm password, big green CTA)
+- Product form: buyer-facing section (title, category, price, description, tags) and a private "what buyers receive" delivery box
+- Delivery types: unique key per buyer (stock) or same content for every buyer (unlimited); delivery content hidden from public APIs, shown after purchase + in vault
+- Default cover images (5 presets; category default applied automatically if none chosen)
+- Admin listing Preview shows the private delivery content before approval
+- Tested: 30/30 backend tests and 100% of frontend flows passed (iteration_2)
+
 ## Backlog
 - P1: Real deposit addresses must be set by admin (seeded placeholders)
 - P1: Support tickets / disputes, 2FA for admin & vendors

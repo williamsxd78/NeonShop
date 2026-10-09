@@ -1,0 +1,20 @@
+{
+  "summary": "Captcha + product tags/default-image/content-delivery testing. Backend: 30/30 pytest cases pass, including 5 new captcha tests (missing captcha -> 422 on login & register, wrong answer -> 400 + reload, single-use enforcement -> 400 on reuse) and 4 new feature tests (default image when image omitted, tags normalized/deduped & capped at 8, content-type requires delivery_content -> 400, full content product flow: creation->admin approve->public endpoints exclude delivery_content->buyer purchase delivers secret->second purchase works due to unlimited stock). Frontend verified: Login/Register captcha renders question (e.g. '7 + 4 = ?'), refresh button loads new question, wrong answer shows 'Incorrect captcha answer' and reloads captcha, correct answer logs in / registers. Vendor product form shows 'What buyers see' (title/category/price/description/tags-chip-input/5 default thumbnails+upload) and 'What buyers receive' (Unique key per buyer / Same content for all + delivery box textarea) with footer 'No image selected: a default image for the category will be used'. Vendor table shows CONTENT DELIVERY row with ∞ stock, no Keys button. Marketplace card tags render as #EBOOK #PDF. Product detail shows 'Instant · unlimited'. Admin Listing requests Preview dialog shows image, SHOWN TO BUYERS description, #tags chips, 'BUYER RECEIVES · UNIQUE KEY (0 IN STOCK)', private delivery content. Buyer purchase flow: Buy -> Confirm purchase dialog -> Pay from wallet -> 'Purchase delivered' dialog with 'YOUR DIGITAL GOODS' secret value + copy icon + Open vault; toast 'Delivered to your vault' shown. Public GET /api/products and /api/products/{id} confirmed NOT to leak delivery_content.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/app/backend/tests/backend_test.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py:68 image fallback uses DEFAULT_IMAGES[body.category] - category literal already restricts to the 5 keys so KeyError impossible, good.",
+    "verify_captcha deletes captcha even on invalid answer (find_one_and_delete) - correct single-use semantic; captcha TTL index on expires_at cleans stale.",
+    "Login attempts lockout uses iso string compare on locked_until and 5-attempt threshold matches auth playbook; no TTL on login_attempts (minor, won't grow much)."
+  ],
+  "updated_files": ["/app/backend/tests/backend_test.py"],
+  "success_rate": {"backend": "100% (30/30)", "frontend": "100% - all captcha & product/vault/preview flows verified"},
+  "test_credentials": "admin@market.com/Admin@123, buyer@market.com/Buyer@123, vendor@market.com/Vendor@123 (now require math captcha)",
+  "seed_data_creation": "Several TEST_ prefixed products (TEST_Content_*, TEST_DefImg_*, TEST_Prod_*, TEST_TagCap_*) and TEST_ users remain in db from pytest runs. Admin settings still carry test addresses from iteration_1 (bc1qtestdepositaddress etc). Not blocking; cleanup optional per request note.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Captcha helper _solve_captcha() in backend_test.py fetches /api/auth/captcha and solves +, -, × ops; used by _login/_register. Frontend captcha data-testids: {mode}-captcha-question, {mode}-captcha-input, {mode}-captcha-refresh where mode is 'login' or 'register'. Vendor product form testids: pf-title-input, pf-category-select, pf-price-input, pf-description-input, pf-tags-input, pf-default-image-0..4, pf-image-input, pf-delivery-keys, pf-delivery-content, pf-delivery-content-input, pf-submit-btn, product-form-dialog. Admin preview testid: listing-preview-<pid>. Purchase flow: click [data-testid=buy-now-btn] opens confirm dialog with [data-testid=confirm-buy-btn] 'Pay from wallet' - two-step confirmation.",
+  "rca of the issue": "No bugs found - all new captcha + product-tags + default-image + content-delivery flows work correctly end-to-end."
+}
