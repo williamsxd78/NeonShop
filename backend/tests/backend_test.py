@@ -508,7 +508,7 @@ class TestBulkImport:
             assert p["status"] == "pending"
             assert p["stock_count"] == 1
             assert p["delivery_type"] == "keys"
-            assert p["title"].startswith(f"Product: TEST_BULK_{uniq}")
+            assert p["title"].startswith(f"TEST_BULK_{uniq}")  # label stripped from name
             # title_line is excluded from preview_lines (so no duplication)
             assert p["preview_lines"] == ["Plan: Yearly", "Region: Global"]
             # description equals public lines joined (hidden lines not exposed to vendor list either in description)

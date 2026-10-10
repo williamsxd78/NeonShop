@@ -88,6 +88,7 @@ class BulkIn(BaseModel):
     separator: str = Field(default="dashes", max_length=60)
     public_lines: List[int] = Field(default_factory=list, max_length=100)
     title_line: Optional[int] = None
+    title_lines: List[int] = Field(default_factory=list, max_length=3)
     title_prefix: str = Field(default="Item", max_length=80)
     deliver: Literal["all", "hidden"] = "all"
     category: str = Field(min_length=1, max_length=40)
@@ -103,8 +104,23 @@ def split_blocks(text: str, sep: str) -> List[List[str]]:
         parts = re.split(r"(?m)^\s*-{3,}\s*$", text)
     else:
         parts = re.split(r"(?m)^\s*" + re.escape(sep.strip()) + r"\s*$", text)
-    blocks = [[ln.strip() for ln in part.splitlines() if ln.strip()] for part in parts]
+    blocks = [[f for ln in part.splitlines() for f in split_fields(ln.strip()) if f] for part in parts]
     return [b for b in blocks if b]
+
+
+LABEL_RE = re.compile(r"^([A-Za-z][\w'’ ]{0,29}?)\s*:\s*(.+)$")
+FIELD_SPLIT_RE = re.compile(r"\s+(?=[A-Z][\w'’]*(?:\s[a-z][\w'’]*)?\s*:\s)")
+
+
+def split_fields(line: str) -> List[str]:
+    if not LABEL_RE.match(line):
+        return [line]
+    return [f.strip() for f in FIELD_SPLIT_RE.split(line) if f.strip()]
+
+
+def field_value(field: str) -> str:
+    m = LABEL_RE.match(field)
+    return m.group(2).strip() if m else field
 
 
 class KeysIn(BaseModel):
@@ -659,8 +675,9 @@ async def vendor_bulk_import(body: BulkIn, user=Depends(require_approved_vendor)
             skipped += 1
             continue
         seen.add(secret)
-        preview = [b[i] for i in pub if i < len(b) and i != body.title_line]
-        title = b[body.title_line] if body.title_line is not None and body.title_line < len(b) else f"{body.title_prefix} #{n}"
+        tl = [i for i in (body.title_lines or ([body.title_line] if body.title_line is not None else [])) if 0 <= i < len(b)]
+        preview = [b[i] for i in pub if i < len(b) and i not in tl]
+        title = " · ".join(field_value(b[i]) for i in tl) or f"{body.title_prefix} #{n}"
         pid = new_id()
         products.append({"id": pid, "vendor_id": user["id"], "vendor_name": vname, "title": title[:120],
                          "description": "\n".join(preview), "preview_lines": preview, "attrs": parse_attrs(preview),
