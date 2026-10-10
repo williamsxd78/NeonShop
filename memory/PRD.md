@@ -95,3 +95,8 @@ Multi-vendor, wallet-based B2B marketplace for digital goods (license keys/codes
 - DELETE /api/admin/users/{uid}: hard-deletes buyer/vendor + products, all keys, orders (buyer/vendor), deposits, withdrawals, tickets, notifications, audit logs; blocks self/admin; writes user.delete audit entry.
 - Admin Users & Vendors tabs: trash button + confirm dialog with balance/earnings warning. Listing delete (keeps sold keys/orders) already existed.
 - Tested: iteration_11 (100%).
+
+## 2026-06 — Crypto deposit auto-verify
+- backend/chain.py: TXID verification via public explorers (mempool.space BTC, litecoinspace LTC, ETH/BSC public RPCs with fallbacks, TronGrid TRC20), live CoinGecko USD pricing (incl. USDT), credits actual received value. Background poll every 60s + instant check on TXID submit; gives up after 72h (manual review).
+- New coin USDT_BEP20. Admin Settings: per-coin toggle + confirmations (defaults BTC 2, LTC 6, ETH 12, TRC20 20, BEP20 15). Admin Deposits: chain status, re-check button, auto-verified label; manual approve/reject stops auto-check. Wallet shows live confirmation progress.
+- Tested: iteration_12 (100%) with real mainnet txs.
