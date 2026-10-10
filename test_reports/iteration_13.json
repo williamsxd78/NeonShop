@@ -1,0 +1,20 @@
+{
+  "summary": "Read-only verification of live production domain https://cardwizard.shop after Caddy SITE_ADDRESS fix and port 443 open. All 6 requested checks PASS. HTTPS root returns 200 with valid Let's Encrypt cert (issuer YE2, valid Oct 10 2026 - Jan 8 2027). www subdomain returns 200 with its own valid LE cert (YE1). HTTP to HTTPS 308 redirect works. /api/ returns {\"message\":\"CardWizard API\"}. /api/auth/captcha returns valid captcha JSON (captcha_id + question like '5 × 6 = ?'). Deep links /wallet and /login both return 200 (SPA served correctly, no 404). Browser render verified on desktop (1920x1080) and mobile (390x844) viewports — homepage shows MARKETPLACE hero, 8 products, verified vendors (NeonSoft Labs, Raj Verified) with proper layout. Login page renders captcha image + email/password form. Mobile view shows bottom nav bar correctly. No console errors.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (not tested per request)", "frontend": "100%"},
+  "test_credentials": "Not used - read-only production checks only",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Live production domain cardwizard.shop fully operational. TLS valid until Jan 8 2027. Both apex and www issued separate LE certs. SPA fallback working on deep refresh (/wallet /login return 200). Note: /wallet when unauthenticated renders the login page (expected auth-gated SPA behavior, not a 404). Captcha endpoint functional.",
+  "rca of the issue": "Original issue: Caddy SITE_ADDRESS env var not applied and VPS cloud firewall blocked 443. User's own fixes (correcting SITE_ADDRESS so Caddy obtains cert, and opening port 443 in cloud firewall) have resolved both issues. External probes now get 200 + valid LE certificate."
+}
