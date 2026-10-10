@@ -88,3 +88,9 @@ android-sdk/
 deploy/.env
 deploy/data/
 deploy/backups/
+.env
+.env.*
+*.env
+credentials.json
+*.key
+.credentials
