@@ -119,7 +119,7 @@ function GuestLockEditor({ initial }) {
         <h3 className="font-display text-base">Login required to interact</h3>
         <p className="text-xs text-slate-500">When on, logged-out visitors only see the homepage. Any click (products, categories, vendors, search, menu, support) opens a login / sign-up popup, and after signing in they continue to what they clicked.</p>
       </div>
-      <Switch data-testid="guest-lock-switch" checked={on} onCheckedChange={toggle} />
+      <Switch data-testid="guest-lock-switch" className="data-[state=unchecked]:bg-slate-600" checked={on} onCheckedChange={toggle} />
     </div>
   );
 }
