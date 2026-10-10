@@ -80,3 +80,9 @@ Multi-vendor, wallet-based B2B marketplace for digital goods (license keys/codes
 - Support tickets + floating green chat button (/support, admin "Support tickets" section, notifications on reply) — iteration_8 100%
 - Self-hosted VPS bundle: install.sh (Docker, prompts, data import), deploy/docker-compose.yml (mongo, backend, Caddy web with auto HTTPS), deploy/{backend,web}.Dockerfile, Caddyfile, update/backup/restore scripts, VPS_INSTALL.md, deploy/initial-data DB dump
 - Backend env switches: STORAGE_MODE (emergent|local), EMAIL_PROVIDER (emergent|resend|none), SEED_DEMO; hero/banner images now bundled at /assets/
+
+## Iteration 12 (2026-06)
+- Change password for every account (Account → Change password); env admin password no longer overwrites a UI-changed password on restart (password_changed_at)
+- Admin quick replies in support tickets (5 defaults, {name}/{ref} placeholders, manage dialog) stored in settings.canned_replies
+- Ticket screenshot attachments (up to 4 per message, 5MB, private: owner/admin only via /api/tickets/files)
+- Tested: 100% backend + frontend (iteration_9)
