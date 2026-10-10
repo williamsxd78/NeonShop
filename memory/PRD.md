@@ -89,3 +89,9 @@ Multi-vendor, wallet-based B2B marketplace for digital goods (license keys/codes
 - Iteration 13: bulk import splits "Label: value" fields even on one line, vendor taps "Name" on 1-3 fields (auto-guesses Product/Name/Title), product name uses field values without labels (e.g. "GameForge Runtime License")
 - Iteration 14: Admin panel redesigned as tile boxes (Website builder box, Requests, Manage) with ?s= deep links, back button + jump select. Website builder: Name & colors (brand name parts, logo icon, tab title, official store name; 7 theme presets + 8 editable colors via CSS variables --nk-*), Home sections (reorder/hide built-ins, add/edit/delete text & image and columns sections), Footer (columns + links + bottom text). Tested 100% (iteration_10)
 - Iteration 15: Custom fonts (heading/body/mono from curated Google Fonts lists, 6 font pairs, live preview) in Admin → Name, colors & fonts; CSS vars --nk-font-*
+
+
+## 2026-06 — Admin deletions
+- DELETE /api/admin/users/{uid}: hard-deletes buyer/vendor + products, all keys, orders (buyer/vendor), deposits, withdrawals, tickets, notifications, audit logs; blocks self/admin; writes user.delete audit entry.
+- Admin Users & Vendors tabs: trash button + confirm dialog with balance/earnings warning. Listing delete (keeps sold keys/orders) already existed.
+- Tested: iteration_11 (100%).

@@ -1405,7 +1405,8 @@ async def admin_delete_user(uid: str, user=Depends(admin_dep)):
         raise HTTPException(404, "User not found")
     if u["role"] == "admin":
         raise HTTPException(400, "Admin accounts cannot be deleted")
-    pids = [p["id"] for p in await db.products.find({"vendor_id": uid}, {"id": 1}).to_list(100000)]
+    await db.users.delete_one({"id": uid})
+    pids = await db.products.distinct("id", {"vendor_id": uid})
     counts = {
         "products": (await db.products.delete_many({"vendor_id": uid})).deleted_count,
         "keys": (await db.license_keys.delete_many({"$or": [{"vendor_id": uid}, {"product_id": {"$in": pids}}]})).deleted_count,
@@ -1416,7 +1417,6 @@ async def admin_delete_user(uid: str, user=Depends(admin_dep)):
     }
     await db.notifications.delete_many({"user_id": uid})
     await db.audit_logs.delete_many({"user_id": uid})
-    await db.users.delete_one({"id": uid})
     await audit(user, "user.delete", uid, details=f"{u['email']} ({u['role']}) · " + ", ".join(f"{v} {k}" for k, v in counts.items()))
     return {"ok": True, **counts}
 
