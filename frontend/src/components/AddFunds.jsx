@@ -24,7 +24,7 @@ export function AddFunds({ onDone }) {
     setBusy(true);
     try {
       await api.post(`/wallet/deposits/${dep.id}/txid`, { txid });
-      toast.success("TXID submitted — awaiting admin verification");
+      toast.success("TXID submitted — waiting for network confirmation. Your balance updates automatically once confirmed.");
       setDep(null); setTxid(""); setAmount(""); onDone?.();
     } catch (e) { toast.error(errMsg(e)); } finally { setBusy(false); }
   };
@@ -59,7 +59,7 @@ export function AddFunds({ onDone }) {
                 <button data-testid="copy-address-btn" onClick={() => copy(sel.address)} className="text-slate-400 hover:text-white"><Copy size={15} /></button>
               </div>
             </div>
-            <div data-testid="network-warning" className={`flex gap-2 rounded-lg border p-3 text-xs ${coin === "USDT_TRC20" ? "border-[#FF2A5F]/40 bg-[#FF2A5F]/10 text-[#FF8FA9]" : "border-[#FFB800]/30 bg-[#FFB800]/10 text-[#FFD772]"}`}>
+            <div data-testid="network-warning" className={`flex gap-2 rounded-lg border p-3 text-xs ${coin.startsWith("USDT") ? "border-[#FF2A5F]/40 bg-[#FF2A5F]/10 text-[#FF8FA9]" : "border-[#FFB800]/30 bg-[#FFB800]/10 text-[#FFD772]"}`}>
               <AlertTriangle size={16} className="shrink-0" /><span>{sel.warning}</span>
             </div>
           </div>

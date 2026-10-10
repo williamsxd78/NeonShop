@@ -14,6 +14,7 @@ from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
 from datetime import datetime, timezone, timedelta
 
+import chain
 from core import (db, client, logger, CATEGORIES, COINS, APP_NAME, now_iso, new_id, to_cents,
                   hash_password, verify_password, create_access_token, public_user, get_current_user,
                   require_role, require_approved_vendor, audit, notify, get_settings,
@@ -128,7 +129,7 @@ class KeysIn(BaseModel):
 
 
 class DepositIn(BaseModel):
-    coin: Literal["BTC", "USDT_TRC20", "LTC", "ETH"]
+    coin: Literal["BTC", "USDT_TRC20", "USDT_BEP20", "LTC", "ETH"]
     amount: float = Field(ge=1, le=1000000)
 
 
@@ -138,7 +139,7 @@ class TxIn(BaseModel):
 
 class WithdrawIn(BaseModel):
     amount: float = Field(ge=1)
-    coin: Literal["BTC", "USDT_TRC20", "LTC", "ETH"]
+    coin: Literal["BTC", "USDT_TRC20", "USDT_BEP20", "LTC", "ETH"]
     address: str = Field(min_length=10, max_length=200)
 
 
@@ -170,9 +171,15 @@ class VendorCommissionIn(BaseModel):
     pct: Optional[float] = Field(default=None, ge=0, le=100)
 
 
+class AutoVerifyIn(BaseModel):
+    enabled: bool
+    confirmations: int = Field(ge=1, le=500)
+
+
 class SettingsIn(BaseModel):
     commission_pct: Optional[float] = Field(default=None, ge=0, le=100)
     addresses: Optional[Dict[str, str]] = None
+    auto_verify: Optional[Dict[str, AutoVerifyIn]] = None
 
 
 class NoticeIn(BaseModel):
@@ -317,7 +324,7 @@ def notice_active(n: dict) -> bool:
 class ManualDepositIn(BaseModel):
     email: EmailStr
     amount: float = Field(gt=0, le=1_000_000)
-    coin: Literal["BTC", "USDT_TRC20", "LTC", "ETH", "OTHER"] = "OTHER"
+    coin: Literal["BTC", "USDT_TRC20", "USDT_BEP20", "LTC", "ETH", "OTHER"] = "OTHER"
     txid: Optional[str] = Field(default=None, max_length=200)
     note: str = Field(min_length=2, max_length=500)
 
@@ -558,6 +565,10 @@ async def submit_txid(did: str, body: TxIn, user=Depends(get_current_user)):
         raise HTTPException(400, "This transaction ID has already been submitted")
     if not res:
         raise HTTPException(400, "Deposit not found or TXID already submitted")
+    if await chain.auto_cfg(res["coin"]):
+        await db.deposits.update_one({"id": did}, {"$set": {"chain": {"state": "searching", "confirmations": 0}}})
+        res["chain"] = {"state": "searching", "confirmations": 0}
+        asyncio.create_task(chain.verify_now(did))
     return res
 
 
@@ -937,7 +948,8 @@ async def admin_approve_deposit(did: str, body: ApproveDepositIn, user=Depends(a
     credit = to_cents(body.amount) if body.amount else d["amount_cents"]
     d = await db.deposits.find_one_and_update(
         {"id": did, "status": "pending"},
-        {"$set": {"status": "approved", "credited_cents": credit, "reviewed_by": user["email"], "reviewed_at": now_iso()}},
+        {"$set": {"status": "approved", "credited_cents": credit, "reviewed_by": user["email"], "reviewed_at": now_iso(),
+                  "chain.final": True}},
         projection={"_id": 0}, return_document=ReturnDocument.AFTER)
     if not d:
         raise HTTPException(400, "Deposit already processed")
@@ -948,11 +960,25 @@ async def admin_approve_deposit(did: str, body: ApproveDepositIn, user=Depends(a
     return d
 
 
+@api.post("/admin/deposits/{did}/recheck")
+async def admin_recheck_deposit(did: str, user=Depends(admin_dep)):
+    d = await db.deposits.find_one({"id": did, "status": "pending", "txid": {"$type": "string"}}, {"_id": 0})
+    if not d:
+        raise HTTPException(400, "Deposit not pending")
+    cfg = await chain.auto_cfg(d["coin"])
+    if not cfg:
+        raise HTTPException(400, "Auto-verify is off for this coin")
+    await db.deposits.update_one({"id": did}, {"$set": {"chain.final": False, "submitted_at": now_iso()}})
+    await chain.process_deposit({**d, "submitted_at": now_iso()}, cfg)
+    return await db.deposits.find_one({"id": did}, {"_id": 0})
+
+
 @api.post("/admin/deposits/{did}/reject")
 async def admin_reject_deposit(did: str, body: ReasonIn, user=Depends(admin_dep)):
     d = await db.deposits.find_one_and_update(
         {"id": did, "status": {"$in": ["pending", "awaiting_txid"]}},
-        {"$set": {"status": "rejected", "reason": body.reason, "reviewed_by": user["email"], "reviewed_at": now_iso()}},
+        {"$set": {"status": "rejected", "reason": body.reason, "reviewed_by": user["email"], "reviewed_at": now_iso(),
+                  "chain.final": True}},
         projection={"_id": 0}, return_document=ReturnDocument.AFTER)
     if not d:
         raise HTTPException(400, "Deposit not pending")
@@ -1116,6 +1142,11 @@ async def admin_update_settings(body: SettingsIn, user=Depends(admin_dep)):
         changed = [c for c in COINS if addrs[c] != s["addresses"].get(c, "")]
         if changed:
             await audit(user, "settings.addresses", None, details=f"updated: {', '.join(changed)}")
+    if body.auto_verify is not None:
+        upd["auto_verify"] = {c: body.auto_verify[c].model_dump() if c in body.auto_verify else v
+                              for c, v in s["auto_verify"].items()}
+        await audit(user, "settings.auto_verify", None, details=", ".join(
+            f"{c}:{'on' if v['enabled'] else 'off'}/{v['confirmations']}" for c, v in upd["auto_verify"].items()))
     if upd:
         await db.settings.update_one({"key": "global"}, {"$set": upd})
     return await get_settings()
@@ -1459,6 +1490,7 @@ async def startup():
     await db.login_attempts.create_index("identifier")
     await db.captchas.create_index("expires_at", expireAfterSeconds=0)
     await seed_all()
+    asyncio.create_task(chain.poll_loop())
     try:
         await asyncio.to_thread(init_storage)
         logger.info("Storage initialized")

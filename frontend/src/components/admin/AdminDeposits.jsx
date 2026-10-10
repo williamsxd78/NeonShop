@@ -4,7 +4,8 @@ import { api, errMsg, money, fmtDate, COIN_LABEL } from "@/lib/api";
 import { useFetch } from "@/lib/useFetch";
 import { StatusBadge, Empty, FilterTabs, PromptDialog } from "@/components/Shared";
 import { ManualDeposit } from "@/components/admin/ManualDeposit";
-import { Plus } from "lucide-react";
+import { ChainStatus } from "@/components/ChainStatus";
+import { Plus, RefreshCw } from "lucide-react";
 
 export function AdminDeposits({ onChange }) {
   const [status, setStatus] = useState("pending");
@@ -13,6 +14,10 @@ export function AdminDeposits({ onChange }) {
   const [reject, setReject] = useState(null);
   const [manual, setManual] = useState(false);
   const done = () => { reload(); onChange(); };
+  const recheck = async (d) => {
+    try { const { data } = await api.post(`/admin/deposits/${d.id}/recheck`); toast.success(data.status === "approved" ? "Confirmed & credited" : `Status: ${data.chain?.state || "checked"}`); done(); }
+    catch (e) { toast.error(errMsg(e)); }
+  };
 
   return (
     <div>
@@ -33,8 +38,9 @@ export function AdminDeposits({ onChange }) {
                 <td className="text-xs">{COIN_LABEL[d.coin] || "Other"}{d.manual && <div className="font-mono text-[10px] uppercase text-info" title={d.note}>manual · {d.reviewed_by}</div>}</td>
                 <td className="font-mono text-brand">{money(d.amount_cents)}{d.credited_cents != null && d.credited_cents !== d.amount_cents && <div className="text-xs text-brandlt">credited {money(d.credited_cents)}</div>}</td>
                 <td className="max-w-[180px] truncate font-mono text-xs" title={d.txid}>{d.txid || "-"}</td>
-                <td><StatusBadge status={d.status} />{d.reason && <div className="mt-1 text-xs text-[#FF2A5F]">{d.reason}</div>}</td>
+                <td><StatusBadge status={d.status} />{d.auto && <div className="font-mono text-[10px] uppercase text-brandlt">auto-verified</div>}<ChainStatus d={d} testId={`admin-dep-chain-${d.id}`} />{d.reason && <div className="mt-1 text-xs text-[#FF2A5F]">{d.reason}</div>}</td>
                 <td className="whitespace-nowrap text-right">
+                  {d.status === "pending" && d.chain && <button data-testid={`dep-recheck-${d.id}`} onClick={() => recheck(d)} className="nk-btn-ghost nk-btn-sm mr-2" title="Check blockchain now"><RefreshCw size={14} /></button>}
                   {d.status === "pending" && <button data-testid={`dep-approve-${d.id}`} onClick={() => setApprove(d)} className="nk-btn-primary nk-btn-sm mr-2">Approve</button>}
                   {["pending", "awaiting_txid"].includes(d.status) && <button data-testid={`dep-reject-${d.id}`} onClick={() => setReject(d)} className="nk-btn-danger nk-btn-sm">Reject</button>}
                 </td>

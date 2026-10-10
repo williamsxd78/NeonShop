@@ -34,6 +34,7 @@ CATEGORIES = ["Software Licenses", "Templates", "Digital Assets", "Subscriptions
 COINS = {
     "BTC": {"label": "Bitcoin (BTC)", "network": "Bitcoin", "warning": "Send only BTC on the Bitcoin network. Other assets sent here are lost."},
     "USDT_TRC20": {"label": "Tether (USDT)", "network": "TRC20 (Tron)", "warning": "Send ONLY USDT via the TRC20 (Tron) network. Sending USDT on ERC20, BEP20 or any other network will result in permanent loss."},
+    "USDT_BEP20": {"label": "Tether (USDT)", "network": "BEP20 (BNB Smart Chain)", "warning": "Send ONLY USDT via the BEP20 (BNB Smart Chain) network. Sending on TRC20, ERC20 or any other network will result in permanent loss."},
     "LTC": {"label": "Litecoin (LTC)", "network": "Litecoin", "warning": "Send only LTC on the Litecoin network. Other assets sent here are lost."},
     "ETH": {"label": "Ethereum (ETH)", "network": "ERC20 (Ethereum mainnet)", "warning": "Send only native ETH on Ethereum mainnet. Do not send from L2s or other EVM chains."},
 }
@@ -162,6 +163,9 @@ BUILTIN_SECTIONS = ["hero", "banners", "notice", "vendors", "products"]
 DEFAULT_SECTIONS = [{"id": t, "type": t, "enabled": True} for t in BUILTIN_SECTIONS]
 
 
+DEFAULT_AUTO_VERIFY = {"BTC": 2, "USDT_TRC20": 20, "USDT_BEP20": 15, "LTC": 6, "ETH": 12}
+
+
 async def get_settings() -> dict:
     s = await db.settings.find_one({"key": "global"}, {"_id": 0})
     s.setdefault("categories", list(CATEGORIES))
@@ -173,6 +177,8 @@ async def get_settings() -> dict:
     s["fonts"] = {**DEFAULT_FONTS, **(s.get("fonts") or {})}
     s.setdefault("footer", DEFAULT_FOOTER)
     s.setdefault("sections", DEFAULT_SECTIONS)
+    av = s.get("auto_verify") or {}
+    s["auto_verify"] = {c: {"enabled": True, "confirmations": n, **(av.get(c) or {})} for c, n in DEFAULT_AUTO_VERIFY.items()}
     style = s.get("category_style") or {}
     s["category_style"] = {c: style.get(c) or DEFAULT_CATEGORY_STYLE.get(c) or {"icon": "package", "color": "#22C55E"}
                            for c in s["categories"]}

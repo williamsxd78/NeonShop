@@ -3,12 +3,19 @@ import { api, money, fmtDate, COIN_LABEL } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { AddFunds } from "@/components/AddFunds";
 import { PageHeader, StatusBadge, Empty } from "@/components/Shared";
+import { ChainStatus } from "@/components/ChainStatus";
 
 export default function Wallet() {
   const { user, refresh } = useAuth();
   const [w, setW] = useState(null);
   const load = () => { api.get("/wallet").then((r) => setW(r.data)); refresh(); };
   useEffect(() => { load(); }, []); // eslint-disable-line
+  const watching = w?.deposits?.some((d) => d.status === "pending" && d.chain && !d.chain.final);
+  useEffect(() => {
+    if (!watching) return undefined;
+    const t = setInterval(load, 20000);
+    return () => clearInterval(t);
+  }, [watching]); // eslint-disable-line
 
   return (
     <div>
@@ -33,6 +40,7 @@ export default function Wallet() {
                   <div className="mt-1 flex justify-between font-mono text-xs text-slate-500">
                     <span>{money(d.credited_cents ?? d.amount_cents)}</span><span>{fmtDate(d.created_at)}</span>
                   </div>
+                  <ChainStatus d={d} testId={`deposit-chain-${d.id}`} />
                   {d.reason && <p className="mt-1 text-xs text-[#FF2A5F]">Reason: {d.reason}</p>}
                 </div>
               ))}

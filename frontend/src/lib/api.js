@@ -20,4 +20,4 @@ export function errMsg(e) {
 export const money = (c) => `$${((c || 0) / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 export const imgSrc = (u) => (u && u.startsWith("/api/") ? `${BACKEND}${u}` : u);
 export const fmtDate = (s) => (s ? new Date(s).toLocaleString() : "-");
-export const COIN_LABEL = { BTC: "BTC", USDT_TRC20: "USDT · TRC20", LTC: "LTC", ETH: "ETH" };
+export const COIN_LABEL = { BTC: "BTC", USDT_TRC20: "USDT · TRC20", USDT_BEP20: "USDT · BEP20", LTC: "LTC", ETH: "ETH" };
