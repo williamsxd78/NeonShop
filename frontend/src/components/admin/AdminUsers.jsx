@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { Search } from "lucide-react";
+import { Search, Trash2, AlertTriangle } from "lucide-react";
 import { api, errMsg, money, fmtDate } from "@/lib/api";
 import { useFetch } from "@/lib/useFetch";
-import { StatusBadge, FilterTabs } from "@/components/Shared";
+import { StatusBadge, FilterTabs, ConfirmDialog } from "@/components/Shared";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export function AdminUsers() {
@@ -11,6 +11,7 @@ export function AdminUsers() {
   const [q, setQ] = useState("");
   const [list, reload] = useFetch("/admin/users", { role, q });
   const [adjust, setAdjust] = useState(null);
+  const [del, setDel] = useState(null);
   const toggle = async (u) => {
     try { await api.post(`/admin/users/${u.id}/status`, { status: u.status === "suspended" ? "active" : "suspended" }); reload(); }
     catch (e) { toast.error(errMsg(e)); }
@@ -37,12 +38,14 @@ export function AdminUsers() {
               <td className="whitespace-nowrap text-right">
                 <button data-testid={`user-adjust-${u.id}`} onClick={() => setAdjust(u)} className="nk-btn-ghost nk-btn-sm mr-2">Credit / debit</button>
                 {u.role !== "admin" && <button data-testid={`user-status-${u.id}`} onClick={() => toggle(u)} className={u.status === "suspended" ? "nk-btn-primary nk-btn-sm" : "nk-btn-danger nk-btn-sm"}>{u.status === "suspended" ? "Activate" : "Suspend"}</button>}
+                {u.role !== "admin" && <button data-testid={`user-delete-${u.id}`} onClick={() => setDel(u)} className="nk-btn-danger nk-btn-sm ml-2" title="Delete user"><Trash2 size={14} /></button>}
               </td>
             </tr>
           ))}</tbody>
         </table>
       </div>
       <AdjustDialog user={adjust} onClose={() => setAdjust(null)} onDone={reload} />
+      <DeleteUserDialog user={del} onClose={() => setDel(null)} onDone={reload} />
     </div>
   );
 }
@@ -81,5 +84,23 @@ export function AdjustDialog({ user, onClose, onDone }) {
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+export function DeleteUserDialog({ user, onClose, onDone }) {
+  const owed = (user?.balance_cents || 0) + (user?.role === "vendor" ? user?.earnings_cents || 0 : 0);
+  const desc = (
+    <span className="block space-y-2">
+      <span className="block">Permanently deletes {user?.email} and everything linked: {user?.role === "vendor" ? "all products, license keys (sold & unsold), sales orders, withdrawals, " : ""}orders, deposits, tickets and wallet history. This cannot be undone.</span>
+      {owed > 0 && <span data-testid="user-delete-balance-warning" className="flex items-start gap-2 rounded-lg border border-[#FFB800]/40 bg-[#FFB800]/10 p-2.5 text-[#FFB800]">
+        <AlertTriangle size={15} className="mt-0.5 shrink-0" />
+        <span>This account still holds {money(user.balance_cents || 0)} wallet balance{user.role === "vendor" ? ` and ${money(user.earnings_cents || 0)} earnings` : ""}. It will be lost.</span>
+      </span>}
+    </span>
+  );
+  return (
+    <ConfirmDialog testId="user-delete" open={!!user} onOpenChange={(o) => !o && onClose()} title={`Delete ${user?.role === "vendor" ? "vendor" : "user"} "${user?.store_name || user?.name || ""}"?`}
+      description={desc} confirmText="Delete permanently"
+      onConfirm={async () => { try { await api.delete(`/admin/users/${user.id}`); toast.success("Account deleted"); onDone(); } catch (e) { toast.error(errMsg(e)); throw e; } }} />
   );
 }

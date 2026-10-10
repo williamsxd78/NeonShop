@@ -2,6 +2,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { api, errMsg, money, fmtDate } from "@/lib/api";
 import { useFetch } from "@/lib/useFetch";
+import { Trash2 } from "lucide-react";
+import { DeleteUserDialog } from "./AdminUsers";
 import { StatusBadge, Empty, FilterTabs, PromptDialog } from "@/components/Shared";
 
 export function AdminVendors({ onChange, globalPct }) {
@@ -9,6 +11,7 @@ export function AdminVendors({ onChange, globalPct }) {
   const [list, reload] = useFetch("/admin/vendors", { status });
   const [reject, setReject] = useState(null);
   const [comm, setComm] = useState(null);
+  const [del, setDel] = useState(null);
   const done = () => { reload(); onChange(); };
   const approve = async (v) => { try { await api.post(`/admin/vendors/${v.id}/approve`); toast.success("Vendor approved"); done(); } catch (e) { toast.error(errMsg(e)); } };
 
@@ -31,12 +34,14 @@ export function AdminVendors({ onChange, globalPct }) {
                   {v.vendor_status !== "approved" && <button data-testid={`vendor-approve-${v.id}`} onClick={() => approve(v)} className="nk-btn-primary nk-btn-sm mr-2">Approve</button>}
                   {v.vendor_status === "pending" && <button data-testid={`vendor-reject-${v.id}`} onClick={() => setReject(v)} className="nk-btn-danger nk-btn-sm mr-2">Reject</button>}
                   <button data-testid={`vendor-commission-${v.id}`} onClick={() => setComm(v)} className="nk-btn-ghost nk-btn-sm">Set %</button>
+                  <button data-testid={`vendor-delete-${v.id}`} onClick={() => setDel(v)} className="nk-btn-danger nk-btn-sm ml-2" title="Delete vendor"><Trash2 size={14} /></button>
                 </td>
               </tr>
             ))}</tbody>
           </table>
         </div>
       )}
+      <DeleteUserDialog user={del} onClose={() => setDel(null)} onDone={done} />
       <PromptDialog testId="vendor-reject" open={!!reject} onOpenChange={(o) => !o && setReject(null)} title="Reject vendor" label="Reason" danger confirmText="Reject"
         onSubmit={async (v) => { try { await api.post(`/admin/vendors/${reject.id}/reject`, { reason: v }); toast.success("Vendor rejected"); done(); } catch (e) { toast.error(errMsg(e)); throw e; } }} />
       <PromptDialog testId="vendor-comm" open={!!comm} onOpenChange={(o) => !o && setComm(null)} title={`Commission for ${comm?.store_name || ""}`} required={false}

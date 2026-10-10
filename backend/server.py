@@ -1396,6 +1396,31 @@ async def admin_user_status(uid: str, body: StatusIn, user=Depends(admin_dep)):
     return {"ok": True}
 
 
+@api.delete("/admin/users/{uid}")
+async def admin_delete_user(uid: str, user=Depends(admin_dep)):
+    if uid == user["id"]:
+        raise HTTPException(400, "Cannot delete your own account")
+    u = await db.users.find_one({"id": uid}, {"_id": 0})
+    if not u:
+        raise HTTPException(404, "User not found")
+    if u["role"] == "admin":
+        raise HTTPException(400, "Admin accounts cannot be deleted")
+    pids = [p["id"] for p in await db.products.find({"vendor_id": uid}, {"id": 1}).to_list(100000)]
+    counts = {
+        "products": (await db.products.delete_many({"vendor_id": uid})).deleted_count,
+        "keys": (await db.license_keys.delete_many({"$or": [{"vendor_id": uid}, {"product_id": {"$in": pids}}]})).deleted_count,
+        "orders": (await db.orders.delete_many({"$or": [{"buyer_id": uid}, {"vendor_id": uid}]})).deleted_count,
+        "deposits": (await db.deposits.delete_many({"user_id": uid})).deleted_count,
+        "withdrawals": (await db.withdrawals.delete_many({"vendor_id": uid})).deleted_count,
+        "tickets": (await db.tickets.delete_many({"user_id": uid})).deleted_count,
+    }
+    await db.notifications.delete_many({"user_id": uid})
+    await db.audit_logs.delete_many({"user_id": uid})
+    await db.users.delete_one({"id": uid})
+    await audit(user, "user.delete", uid, details=f"{u['email']} ({u['role']}) · " + ", ".join(f"{v} {k}" for k, v in counts.items()))
+    return {"ok": True, **counts}
+
+
 @api.get("/admin/orders")
 async def admin_orders(user=Depends(admin_dep)):
     return await db.orders.find({}, {"_id": 0, "license_key": 0}).sort("created_at", -1).to_list(5000)
