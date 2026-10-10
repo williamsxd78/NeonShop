@@ -100,3 +100,8 @@ Multi-vendor, wallet-based B2B marketplace for digital goods (license keys/codes
 - backend/chain.py: TXID verification via public explorers (mempool.space BTC, litecoinspace LTC, ETH/BSC public RPCs with fallbacks, TronGrid TRC20), live CoinGecko USD pricing (incl. USDT), credits actual received value. Background poll every 60s + instant check on TXID submit; gives up after 72h (manual review).
 - New coin USDT_BEP20. Admin Settings: per-coin toggle + confirmations (defaults BTC 2, LTC 6, ETH 12, TRC20 20, BEP20 15). Admin Deposits: chain status, re-check button, auto-verified label; manual approve/reject stops auto-check. Wallet shows live confirmation progress.
 - Tested: iteration_12 (100%) with real mainnet txs.
+
+## 2026-06 — Guest lock + link preview meta
+- Admin → Shop content: "Login required to interact" switch (settings.guest_lock, default off). When on, logged-out visitors see only the homepage; any click/deep link opens a login/signup popup (GuestGate.jsx, reuses AuthForm from AuthPage.jsx) and continues to the clicked page after login. Header Log in / Sign up stay usable.
+- index.html: removed "A product of emergent.sh" description; added og/twitter meta for social previews.
+- Tested: iteration_14 (100%).
