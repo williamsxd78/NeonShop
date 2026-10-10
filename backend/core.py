@@ -144,9 +144,9 @@ DEFAULT_CATEGORY_STYLE = {"Software Licenses": {"icon": "key", "color": "#22D3EE
 
 DEFAULT_THEME = {"brand": "#22C55E", "brandlt": "#4ADE80", "info": "#22D3EE", "ink": "#0A0B0B",
                  "panel": "#171A19", "surface": "#121413", "deep": "#0E100F", "line": "#272B29"}
-DEFAULT_BRAND = {"name_start": "Neon", "name_end": "Keys", "icon": "zap", "page_title": "NeonKeys Market",
-                 "official_store": "NeonKeys Official"}
-DEFAULT_FOOTER = {"text": "© 2026 NeonKeys · Verified vendors · Instant delivery", "columns": [
+DEFAULT_BRAND = {"name_start": "Card", "name_end": "Wizard", "icon": "sparkles", "page_title": "CardWizard – Gift Cards & Digital Goods",
+                 "official_store": "CardWizard Official"}
+DEFAULT_FOOTER = {"text": "© 2026 CardWizard · Gift cards & digital goods · Instant delivery", "columns": [
     {"title": "Marketplace", "links": [{"label": "Shop", "url": "/"}, {"label": "Vendors", "url": "/vendors"},
                                        {"label": "Become a vendor", "url": "/vendor/register"}]},
     {"title": "Account", "links": [{"label": "Wallet", "url": "/wallet"}, {"label": "Key vault", "url": "/vault"},

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NeonKeys Market: one-command VPS installer (Ubuntu/Debian). Usage: sudo ./install.sh
+# CardWizard: one-command VPS installer (Ubuntu/Debian). Usage: sudo ./install.sh
 set -euo pipefail
 cd "$(dirname "$0")"
 ROOT=$(pwd)
@@ -20,7 +20,7 @@ if ! grep -q avx /proc/cpuinfo 2>/dev/null; then MONGO_IMAGE=mongo:4.4; else MON
 
 if [ ! -f "$ENVF" ]; then
   echo "==> First-time setup"
-  read -rp "Domain pointing to this server (e.g. market.example.com). Leave blank to use the IP over http: " DOMAIN
+  read -rp "Domain pointing to this server (e.g. cardwizard.shop). Leave blank to use the IP over http: " DOMAIN
   read -rp "Admin email [admin@market.com]: " ADMIN_EMAIL
   ADMIN_EMAIL=${ADMIN_EMAIL:-admin@market.com}
   while :; do
@@ -32,7 +32,7 @@ if [ ! -f "$ENVF" ]; then
   EMAIL_PROVIDER=none; EMAIL_FROM=""
   if [ -n "$RESEND_API_KEY" ]; then
     EMAIL_PROVIDER=resend
-    read -rp "Sender (domain verified in Resend), e.g. NeonKeys <no-reply@${DOMAIN:-yourdomain.com}>: " EMAIL_FROM
+    read -rp "Sender (domain verified in Resend), e.g. CardWizard <no-reply@${DOMAIN:-yourdomain.com}>: " EMAIL_FROM
   fi
   SEED_DEMO=false
   if [ ! -f "$DATA" ]; then
@@ -42,15 +42,15 @@ if [ ! -f "$ENVF" ]; then
   cat > "$ENVF" <<EOF
 SITE_ADDRESS=$SITE_ADDRESS
 CORS_ORIGINS=$SITE_URL
-DB_NAME=neonkeys
-APP_NAME=neonkeys
+DB_NAME=cardwizard
+APP_NAME=cardwizard
 JWT_SECRET=$(openssl rand -hex 32)
 ADMIN_EMAIL=$ADMIN_EMAIL
 ADMIN_PASSWORD='$ADMIN_PASSWORD'
 EMAIL_PROVIDER=$EMAIL_PROVIDER
 RESEND_API_KEY=$RESEND_API_KEY
 EMAIL_FROM='$EMAIL_FROM'
-EMAIL_FROM_NAME='NeonKeys Market'
+EMAIL_FROM_NAME='CardWizard'
 EMAIL_REPLY_TO=
 SEED_DEMO=$SEED_DEMO
 MONGO_IMAGE=$MONGO_IMAGE
@@ -87,7 +87,7 @@ $DC up -d --build
 
 echo
 echo "============================================================"
-echo " NeonKeys Market is running."
+echo " CardWizard is running."
 if [ "$SITE_ADDRESS" = ":80" ]; then echo " Open: http://$(hostname -I | awk '{print $1}')"; else echo " Open: https://$SITE_ADDRESS  (HTTPS certificate is issued automatically)"; fi
 echo " Admin login: $ADMIN_EMAIL  (password you entered)"
 echo " Update later:  sudo ./deploy/update.sh"

@@ -5,7 +5,7 @@ import { applyTheme, applyFonts } from "@/lib/theme";
 let cache = null;
 const subs = new Set();
 
-export const DEFAULT_BRAND = { name_start: "Neon", name_end: "Keys", icon: "zap", page_title: "NeonKeys Market", official_store: "NeonKeys Official" };
+export const DEFAULT_BRAND = { name_start: "Card", name_end: "Wizard", icon: "sparkles", page_title: "CardWizard – Gift Cards & Digital Goods", official_store: "CardWizard Official" };
 const EMPTY = { categories: [], category_style: {}, notice: null, hero: null, banners: [], product_count: 0,
   brand: DEFAULT_BRAND, footer: { text: "", columns: [] }, sections: null, theme: null };
 

@@ -1409,7 +1409,7 @@ async def admin_audit(action: str = "", user=Depends(admin_dep)):
 
 @api.get("/")
 async def root():
-    return {"message": "NeonKeys Market API"}
+    return {"message": "CardWizard API"}
 
 
 app.include_router(api)

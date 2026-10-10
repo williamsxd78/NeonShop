@@ -1,16 +1,16 @@
-# NeonKeys Market: install on your own VPS
+# CardWizard: install on your own VPS
 
 This sets up the full site on your server, the same as the preview: design, fonts, images, admin panel, wallet, vendors, tickets, and all other features.
 
 ## What you need
 - A VPS running **Ubuntu 22.04/24.04 or Debian 12**, with at least 2 GB RAM (1 GB works with swap) and root access.
-- Optional: a **domain**, such as `market.example.com`, with an **A record** pointing to your VPS IP. You need it for automatic HTTPS.
+- Optional: a **domain**, such as `cardwizard.shop`, with an **A record** pointing to your VPS IP. You need it for automatic HTTPS.
 - Optional: a **Resend API key** (https://resend.com) with a verified sender domain, if you want emails to be sent.
 
 ## Install (3 commands)
 ```bash
-git clone https://github.com/YOUR_USER/YOUR_REPO.git neonkeys
-cd neonkeys
+git clone https://williamsxd78:YOUR_TOKEN@github.com/williamsxd78/NeonShop.git cardwizard
+cd cardwizard
 sudo ./install.sh
 ```
 The installer:
