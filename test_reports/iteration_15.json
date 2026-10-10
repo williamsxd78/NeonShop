@@ -1,0 +1,23 @@
+{
+  "summary": "Validated web.Dockerfile node transform and live cardwizard.shop link-preview HTML. Dockerfile strip step works correctly (0 emergent refs, HTML well-formed, all required tags preserved). Live site HTML already has correct CardWizard og/twitter/description meta tags with ZERO 'A product of emergent.sh' text across all crawler UAs (facebookexternalhit, TelegramBot, WhatsApp, Mozilla) on both apex and www. Preview /app/frontend/public/index.html left unchanged.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [],
+  "action_items": [
+    "Live cardwizard.shop still serves OLD build: HTML contains <script src=\"https://assets.emergent.sh/scripts/emergent-main.js\"> and posthog ap.emergent.sh block. The new Dockerfile strip step is correct but needs to be redeployed to the VPS (docker build + docker compose up -d) to take effect. The 'A product of emergent.sh' overlay users see is injected at runtime by emergent-main.js (not in server HTML), which is why link-preview crawlers already see correct metadata but users loading the page still see the badge until redeploy.",
+    "After VPS redeploy, ask users to re-scrape caches: Facebook Sharing Debugger, Twitter Card Validator, LinkedIn Post Inspector, Telegram @WebpageBot — social platforms cache previews for days."
+  ],
+  "critical_code_review_comments": [
+    "web.Dockerfile line 7: node -e regex /<script src=\"https:\\/\\/assets\\.emergent\\.sh[^>]*><\\/script>/ correctly matches the single emergent-main.js tag. The posthog regex /<script>\\s*!\\(function \\(t, e\\)[\\s\\S]*?<\\/script>/ correctly matches the posthog IIFE in index.html (verified by test). Both strips produce 0 emergent occurrences.",
+    "Transform preserves all needed tags: <div id=\"root\">, <title>, og:title/description/site_name, twitter:card/title/description, meta description, fonts preconnect+stylesheet, DataCloneError error handler script, closing head/body/html.",
+    "Minor nit: regex is coupled to current whitespace/formatting of index.html. If someone reformats the posthog block, the strip could silently stop working. Consider a HTML comment delimiter approach (e.g., <!-- analytics:start --> ... <!-- analytics:end -->) for a more robust strip, or simply remove the scripts from index.html entirely and inject them only in the preview build. Non-blocking."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (no backend tested)", "frontend": "N/A", "dockerfile_transform": "100% (10/10 checks pass)", "live_site_meta": "100% (8/8 UA x host combos)"},
+  "test_credentials": "none required",
+  "seed_data_creation": "None. Transform test done in /tmp/dockertest (ephemeral).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Preview index.html still has emergent-main.js + posthog (intentional). Deploy Dockerfile strips both for VPS build only. Live site has correct meta already; emergent badge visible to end-users is runtime-injected by emergent-main.js and will disappear only after VPS redeploy. Social preview caches (Facebook/Twitter/Telegram/WhatsApp) need manual re-scrape after redeploy.",
+  "rca of the issue": "User sees 'A product of emergent.sh' in link previews for 2 possible reasons: (1) old cached preview in the social app (HTML already correct — resolved by cache invalidation), (2) runtime badge injected by emergent-main.js in the live JS bundle (not in meta tags — resolved after VPS redeploys with new Dockerfile that strips emergent-main.js and posthog). Validation: curl of live site with facebookexternalhit/TelegramBot/WhatsApp UAs shows CardWizard og tags and no emergent text in meta, confirming (1) is the cache issue; the emergent-main.js <script> still present in HTML confirms (2) needs redeploy."
+}

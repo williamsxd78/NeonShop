@@ -105,3 +105,4 @@ Multi-vendor, wallet-based B2B marketplace for digital goods (license keys/codes
 - Admin → Shop content: "Login required to interact" switch (settings.guest_lock, default off). When on, logged-out visitors see only the homepage; any click/deep link opens a login/signup popup (GuestGate.jsx, reuses AuthForm from AuthPage.jsx) and continues to the clicked page after login. Header Log in / Sign up stay usable.
 - index.html: removed "A product of emergent.sh" description; added og/twitter meta for social previews.
 - Tested: iteration_14 (100%).
+- 2026-06: deploy/web.Dockerfile now strips emergent-main.js + posthog script from index.html for VPS builds (iteration_15 pass). Live meta tags verified correct; old previews are social-app cache.
