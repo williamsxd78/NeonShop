@@ -28,7 +28,7 @@ async def _upsert_user(email, password, **fields):
                "status": "active", "created_at": now_iso(), **fields}
         await db.users.insert_one(doc)
         return doc, True
-    if not verify_password(password, u["password_hash"]):
+    if not u.get("password_changed_at") and not verify_password(password, u["password_hash"]):
         await db.users.update_one({"email": email}, {"$set": {"password_hash": hash_password(password)}})
     return u, False
 

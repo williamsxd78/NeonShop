@@ -6,16 +6,18 @@ import { api, errMsg } from "@/lib/api";
 import { useFetch } from "@/lib/useFetch";
 import { PageHeader } from "@/components/Shared";
 import { TicketList, TicketThread } from "@/components/support/TicketThread";
+import { AttachButton, AttachPreview, useAttachments } from "@/components/support/Attachments";
 
 const TOPICS = ["General", "Deposit", "Order", "Vendor", "Account"];
 
 function NewTicket({ onCreated, onCancel }) {
   const [f, setF] = useState({ subject: "", topic: "General", message: "" });
   const [busy, setBusy] = useState(false);
+  const att = useAttachments();
   const submit = async (e) => {
     e.preventDefault();
     setBusy(true);
-    try { const { data } = await api.post("/tickets", f); toast.success(`Ticket ${data.ref} created`); onCreated(data.id); }
+    try { const { data } = await api.post("/tickets", { ...f, attachments: att.files }); toast.success(`Ticket ${data.ref} created`); onCreated(data.id); }
     catch (e2) { toast.error(errMsg(e2)); } finally { setBusy(false); }
   };
   return (
@@ -28,9 +30,12 @@ function NewTicket({ onCreated, onCancel }) {
       </div>
       <div><label className="nk-label">Message</label><textarea data-testid="new-ticket-message" required className="nk-input min-h-[120px]" placeholder="Describe your issue. Include the deposit reference, TXID or order details if relevant."
         value={f.message} onChange={(e) => setF({ ...f, message: e.target.value })} /></div>
+      <div><label className="nk-label">Screenshots (optional, up to 4)</label>
+        <div className="flex flex-wrap items-center gap-2"><AttachButton att={att} testId="new-ticket-attach-btn" /><AttachPreview att={att} />
+          {!att.files.length && <span className="text-xs text-slate-500">Payment proof, error message… PNG/JPG up to 5MB</span>}</div></div>
       <div className="flex justify-end gap-2">
         <button type="button" data-testid="new-ticket-cancel" onClick={onCancel} className="nk-btn-ghost nk-btn-sm">Cancel</button>
-        <button data-testid="new-ticket-submit" disabled={busy} className="nk-btn-primary nk-btn-sm">Send request</button>
+        <button data-testid="new-ticket-submit" disabled={busy || att.uploading} className="nk-btn-primary nk-btn-sm">Send request</button>
       </div>
     </form>
   );

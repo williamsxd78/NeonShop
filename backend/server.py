@@ -299,6 +299,25 @@ async def update_profile(body: ProfileIn, user=Depends(get_current_user)):
     return {"ok": True}
 
 
+class ChangePasswordIn(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=8, max_length=128)
+
+
+@api.post("/auth/change-password")
+async def change_password(body: ChangePasswordIn, user=Depends(get_current_user)):
+    u = await db.users.find_one({"id": user["id"]})
+    if not verify_password(body.current_password, u["password_hash"]):
+        raise HTTPException(400, "Current password is incorrect")
+    if body.current_password == body.new_password:
+        raise HTTPException(400, "New password must be different")
+    await db.users.update_one({"id": user["id"]}, {"$set": {"password_hash": hash_password(body.new_password),
+                                                            "password_changed_at": now_iso()}})
+    await audit(user, "auth.password_changed", user["id"], None, user["id"], "Password changed")
+    await notify(user["id"], "Password changed", "Your account password was changed. If this wasn't you, contact support.")
+    return {"ok": True}
+
+
 # ---------------- Public catalog ----------------
 @api.get("/categories")
 async def categories():
@@ -539,7 +558,7 @@ async def upload(file: UploadFile = File(...), user=Depends(require_role("vendor
 
 @api.get("/files/{path:path}")
 async def serve_file(path: str):
-    rec = await db.files.find_one({"storage_path": path, "is_deleted": False})
+    rec = await db.files.find_one({"storage_path": path, "is_deleted": False, "kind": {"$ne": "ticket"}})
     if not rec:
         raise HTTPException(404, "File not found")
     data, ctype = await asyncio.to_thread(get_object, path)
@@ -1075,24 +1094,95 @@ async def admin_user_details(uid: str, user=Depends(admin_dep)):
 TICKET_TOPICS = ["General", "Deposit", "Order", "Vendor", "Account"]
 
 
-class TicketIn(BaseModel):
+class TicketMsgIn(BaseModel):
+    message: str = Field(default="", max_length=4000)
+    attachments: List[str] = Field(default_factory=list, max_length=4)
+
+
+class TicketIn(TicketMsgIn):
     subject: str = Field(min_length=3, max_length=120)
     topic: Literal["General", "Deposit", "Order", "Vendor", "Account"] = "General"
-    message: str = Field(min_length=1, max_length=4000)
     order_id: Optional[str] = None
 
 
-class TicketMsgIn(BaseModel):
-    message: str = Field(min_length=1, max_length=4000)
+class CannedIn(BaseModel):
+    title: str = Field(min_length=1, max_length=60)
+    text: str = Field(min_length=1, max_length=2000)
+
+
+class CannedListIn(BaseModel):
+    replies: List[CannedIn] = Field(max_length=30)
+
+
+DEFAULT_CANNED = [
+    {"title": "Deposit delay", "text": "Hi {name}, thanks for reaching out. Crypto deposits are verified manually and need network confirmations, usually within 1–2 hours. We'll credit your wallet as soon as your transaction is confirmed. Reference: {ref}."},
+    {"title": "Need TXID", "text": "Hi {name}, please reply with the transaction ID (TXID) and the coin/network you used so we can locate your payment."},
+    {"title": "Wrong network", "text": "Hi {name}, it looks like the funds were sent on a different network than the one shown. Please share the TXID and network used; we'll check whether recovery is possible."},
+    {"title": "Key not working", "text": "Hi {name}, sorry about that. Please send a screenshot of the activation error and the order ID. We'll check with the vendor and resolve it via wallet credit or a replacement."},
+    {"title": "Resolved", "text": "Hi {name}, this has been resolved. If you need anything else just reply here. Thanks for using our marketplace!"},
+]
 
 
 class TicketStatusIn(BaseModel):
     status: Literal["open", "closed"]
 
 
-def _msg(user: dict, text: str) -> dict:
+def _msg(user: dict, body: TicketMsgIn) -> dict:
     return {"id": new_id(), "author_id": user["id"], "author_name": user.get("name") or user["email"],
-            "from_admin": user["role"] == "admin", "message": text.strip(), "created_at": now_iso()}
+            "from_admin": user["role"] == "admin", "message": body.message.strip(),
+            "attachments": body.attachments, "created_at": now_iso()}
+
+
+async def _check_msg(body: TicketMsgIn, user: dict):
+    body.attachments = list(dict.fromkeys(body.attachments))
+    if not body.message.strip() and not body.attachments:
+        raise HTTPException(400, "Write a message or attach a screenshot")
+    if body.attachments:
+        n = await db.files.count_documents({"storage_path": {"$in": body.attachments}, "owner_id": user["id"],
+                                            "kind": "ticket", "is_deleted": False})
+        if n != len(body.attachments):
+            raise HTTPException(400, "Invalid attachment")
+
+
+@api.post("/tickets/upload")
+async def upload_ticket_file(file: UploadFile = File(...), user=Depends(get_current_user)):
+    if file.content_type not in ALLOWED_IMG:
+        raise HTTPException(400, "Only PNG, JPG, WEBP or GIF images allowed")
+    data = await file.read()
+    if len(data) > 5 * 1024 * 1024:
+        raise HTTPException(400, "Max 5MB per image")
+    path = f"{APP_NAME}/tickets/{user['id']}/{uuid.uuid4()}.{ALLOWED_IMG[file.content_type]}"
+    result = await asyncio.to_thread(put_object, path, data, file.content_type)
+    await db.files.insert_one({"id": new_id(), "storage_path": result["path"], "original_filename": file.filename,
+                               "content_type": file.content_type, "size": result.get("size"), "kind": "ticket",
+                               "owner_id": user["id"], "is_deleted": False, "created_at": now_iso()})
+    return {"path": result["path"]}
+
+
+@api.get("/tickets/files/{path:path}")
+async def ticket_file(path: str, user=Depends(get_current_user)):
+    rec = await db.files.find_one({"storage_path": path, "kind": "ticket", "is_deleted": False})
+    if not rec:
+        raise HTTPException(404, "File not found")
+    if user["role"] != "admin" and rec["owner_id"] != user["id"] and not await db.tickets.find_one(
+            {"user_id": user["id"], "messages.attachments": path}, {"_id": 1}):
+        raise HTTPException(403, "Forbidden")
+    data, ctype = await asyncio.to_thread(get_object, path)
+    return Response(content=data, media_type=rec.get("content_type", ctype), headers={"Cache-Control": "private, max-age=3600"})
+
+
+@api.get("/admin/canned-replies")
+async def get_canned(user=Depends(admin_dep)):
+    s = await get_settings()
+    return s["canned_replies"] if "canned_replies" in s else DEFAULT_CANNED
+
+
+@api.put("/admin/canned-replies")
+async def put_canned(body: CannedListIn, user=Depends(admin_dep)):
+    replies = [r.model_dump() for r in body.replies]
+    await db.settings.update_one({"key": "global"}, {"$set": {"canned_replies": replies}})
+    await audit(user, "tickets.canned_updated", None, None, None, f"{len(replies)} quick replies")
+    return replies
 
 
 async def _ticket_for(tid: str, user: dict) -> dict:
@@ -1105,11 +1195,12 @@ async def _ticket_for(tid: str, user: dict) -> dict:
 
 @api.post("/tickets")
 async def create_ticket(body: TicketIn, user=Depends(get_current_user)):
+    await _check_msg(body, user)
     t = {"id": new_id(), "ref": "TCK-" + secrets.token_hex(3).upper(), "user_id": user["id"],
          "user_email": user["email"], "user_name": user.get("name"), "user_role": user["role"],
          "subject": body.subject.strip(), "topic": body.topic, "order_id": body.order_id,
          "status": "open", "unread_user": False, "unread_admin": True,
-         "messages": [_msg(user, body.message)], "created_at": now_iso(), "updated_at": now_iso()}
+         "messages": [_msg(user, body)], "created_at": now_iso(), "updated_at": now_iso()}
     await db.tickets.insert_one(t)
     t.pop("_id", None)
     return t
@@ -1136,12 +1227,13 @@ async def reply_ticket(tid: str, body: TicketMsgIn, user=Depends(get_current_use
     admin = user["role"] == "admin"
     if t["status"] == "closed" and not admin:
         raise HTTPException(400, "This ticket is closed. Please open a new one.")
+    await _check_msg(body, user)
     upd = {"status": "answered" if admin else "open", "updated_at": now_iso(),
            "unread_user": admin, "unread_admin": not admin}
-    res = await db.tickets.find_one_and_update({"id": tid}, {"$push": {"messages": _msg(user, body.message)}, "$set": upd},
+    res = await db.tickets.find_one_and_update({"id": tid}, {"$push": {"messages": _msg(user, body)}, "$set": upd},
                                                projection={"_id": 0}, return_document=ReturnDocument.AFTER)
     if admin:
-        await notify(t["user_id"], "Support replied", f"{t['ref']} · {t['subject']}: {body.message.strip()[:200]}",
+        await notify(t["user_id"], "Support replied", f"{t['ref']} · {t['subject']}: {body.message.strip()[:200] or '(screenshot attached)'}",
                      "Support ticket reply")
     return res
 

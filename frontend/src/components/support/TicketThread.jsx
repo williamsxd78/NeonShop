@@ -4,20 +4,23 @@ import { Send, ShieldCheck, Lock, RotateCcw, CheckCircle2 } from "lucide-react";
 import { api, errMsg, fmtDate } from "@/lib/api";
 import { useFetch } from "@/lib/useFetch";
 import { StatusBadge } from "@/components/Shared";
+import { TicketImage, AttachButton, AttachPreview, useAttachments } from "@/components/support/Attachments";
+import { QuickReplies } from "@/components/admin/CannedReplies";
 
 export function TicketThread({ id, admin = false, onChange }) {
   const [t, reload] = useFetch(`/tickets/${id}`);
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
+  const att = useAttachments();
   const end = useRef(null);
   useEffect(() => { end.current?.scrollIntoView({ block: "nearest" }); }, [t?.messages?.length]);
   if (!t) return <div className="nk-card h-64 animate-pulse" />;
 
   const send = async (e) => {
     e.preventDefault();
-    if (!msg.trim()) return;
+    if (!msg.trim() && !att.files.length) return;
     setBusy(true);
-    try { await api.post(`/tickets/${id}/messages`, { message: msg }); setMsg(""); await reload(); onChange?.(); }
+    try { await api.post(`/tickets/${id}/messages`, { message: msg, attachments: att.files }); setMsg(""); att.clear(); await reload(); onChange?.(); }
     catch (e2) { toast.error(errMsg(e2)); } finally { setBusy(false); }
   };
   const setStatus = async (status) => {
@@ -48,7 +51,8 @@ export function TicketThread({ id, admin = false, onChange }) {
                 <div className="mb-1 flex items-center gap-1.5 text-[10px] text-slate-500">
                   {m.from_admin && <ShieldCheck size={11} className="text-[#4ADE80]" />}{m.from_admin ? "Support team" : m.author_name} · {fmtDate(m.created_at)}
                 </div>
-                <p className="whitespace-pre-wrap break-words">{m.message}</p>
+                {m.message && <p className="whitespace-pre-wrap break-words">{m.message}</p>}
+                {m.attachments?.length > 0 && <div className="mt-2 flex flex-wrap gap-2">{m.attachments.map((p) => <TicketImage key={p} path={p} />)}</div>}
               </div>
             </div>
           );
@@ -58,10 +62,15 @@ export function TicketThread({ id, admin = false, onChange }) {
       {closed && !admin ? (
         <div className="flex items-center gap-2 border-t border-[#272B29] p-4 text-xs text-slate-500" data-testid="ticket-closed-note"><Lock size={13} />This ticket is closed. Open a new ticket if you need more help.</div>
       ) : (
-        <form onSubmit={send} className="flex items-end gap-2 border-t border-[#272B29] p-3">
+        <form onSubmit={send} className="space-y-2 border-t border-[#272B29] p-3">
+          <AttachPreview att={att} />
+          <div className="flex items-end gap-2">
+          {admin && <QuickReplies ticket={t} onPick={(text) => setMsg((m) => (m.trim() ? `${m}\n\n${text}` : text))} />}
+          <AttachButton att={att} testId="ticket-attach-btn" />
           <textarea data-testid="ticket-reply-input" rows={2} className="nk-input min-h-[44px] flex-1 resize-none" placeholder={admin ? "Reply to the user…" : "Write a message…"}
             value={msg} onChange={(e) => setMsg(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) send(e); }} />
-          <button data-testid="ticket-reply-send" disabled={busy || !msg.trim()} className="nk-btn-primary h-11 w-11 shrink-0 !p-0"><Send size={16} /></button>
+          <button data-testid="ticket-reply-send" disabled={busy || att.uploading || (!msg.trim() && !att.files.length)} className="nk-btn-primary h-11 w-11 shrink-0 !p-0"><Send size={16} /></button>
+          </div>
         </form>
       )}
     </div>

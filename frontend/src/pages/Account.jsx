@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { User, Pencil, KeyRound, Wallet, Package, History, Bell, Boxes, Shield, BadgeCheck, LogOut, ChevronRight, ArrowLeft, Zap , MessageCircle } from "lucide-react";
+import { User, Pencil, KeyRound, Wallet, Package, History, Bell, Boxes, Shield, BadgeCheck, LogOut, ChevronRight, ArrowLeft, Zap, MessageCircle, Lock } from "lucide-react";
 import { api, errMsg, money } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { StatusBadge, PromptDialog } from "@/components/Shared";
+import { ChangePasswordDialog } from "@/components/ChangePassword";
 
 const Row = ({ to, title, sub, Icon, color }) => (
   <Link to={to} data-testid={`account-link-${to.slice(1) || "home"}`} className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-white/[0.02]">
@@ -18,6 +19,7 @@ export default function Account() {
   const { user, refresh, signOut } = useAuth();
   const nav = useNavigate();
   const [edit, setEdit] = useState(false);
+  const [pw, setPw] = useState(false);
   const rows = [
     ...(user.role === "admin" ? [["/admin", "Admin panel", "Queues, approvals, commission", Shield, "#FF2A5F"]] : []),
     ...(user.role === "vendor" ? [["/vendor", "Vendor dashboard", "Products, stock, sales, payouts", Boxes, "#22C55E"]] : []),
@@ -52,8 +54,14 @@ export default function Account() {
       </div>
       <div className="nk-card mb-6 divide-y divide-[#272B29] overflow-hidden rounded-2xl">
         {rows.map(([to, t, s, I, c]) => <Row key={t} to={to} title={t} sub={s} Icon={I} color={c} />)}
+        <button data-testid="account-change-password" onClick={() => setPw(true)} className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-white/[0.02]">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#FFB800]/10 text-[#FFB800]"><Lock size={17} /></span>
+          <div className="min-w-0 flex-1"><div className="font-display text-[15px] text-slate-100">Change password</div><div className="truncate text-xs text-slate-500">Keep your account secure</div></div>
+          <ChevronRight size={18} className="text-slate-600" />
+        </button>
       </div>
       <button data-testid="account-logout-btn" onClick={() => { signOut(); nav("/login"); }} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-[#FF2A5F]/20 bg-[#FF2A5F]/[0.06] py-3 text-sm text-[#FF2A5F] hover:bg-[#FF2A5F]/10"><LogOut size={16} />Sign out</button>
+      <ChangePasswordDialog open={pw} onOpenChange={setPw} />
       <PromptDialog testId="profile-name" open={edit} onOpenChange={setEdit} title="Edit profile" label="Display name" defaultValue={user.name} confirmText="Save"
         onSubmit={async (v) => { try { await api.put("/auth/profile", { name: v }); toast.success("Profile updated"); refresh(); } catch (e) { toast.error(errMsg(e)); throw e; } }} />
     </div>
