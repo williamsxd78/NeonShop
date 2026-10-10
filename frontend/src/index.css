@@ -39,7 +39,7 @@
     * { @apply border-border; }
     body {
         @apply bg-background text-foreground;
-        font-family: "Manrope", sans-serif;
+        font-family: var(--nk-font-body, "Manrope"), sans-serif;
         -webkit-font-smoothing: antialiased;
         background-color: rgb(var(--nk-ink));
         background-image:
@@ -47,8 +47,8 @@
             radial-gradient(ellipse 50% 40% at 100% 10%, rgb(var(--nk-info)/0.04), transparent 60%);
         background-attachment: fixed;
     }
-    h1, h2, h3, h4, .font-display { font-family: "Outfit", sans-serif; }
-    .font-mono, code { font-family: "JetBrains Mono", monospace; }
+    h1, h2, h3, h4, .font-display { font-family: var(--nk-font-heading, "Outfit"), sans-serif; }
+    .font-mono, code { font-family: var(--nk-font-mono, "JetBrains Mono"), monospace; }
     ::selection { background: rgb(var(--nk-brand)/0.3); color: #fff; }
 }
 

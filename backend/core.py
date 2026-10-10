@@ -152,6 +152,12 @@ DEFAULT_FOOTER = {"text": "© 2026 NeonKeys · Verified vendors · Instant deliv
     {"title": "Account", "links": [{"label": "Wallet", "url": "/wallet"}, {"label": "Key vault", "url": "/vault"},
                                    {"label": "Orders", "url": "/orders"}]},
     {"title": "Help", "links": [{"label": "Support", "url": "/support"}, {"label": "Notifications", "url": "/notifications"}]}]}
+FONT_CHOICES = {
+    "heading": ["Outfit", "Space Grotesk", "Sora", "Syne", "Unbounded", "Chakra Petch", "Orbitron", "Rajdhani", "Exo 2", "Lexend", "Poppins", "Montserrat", "Bricolage Grotesque", "Playfair Display", "Bebas Neue"],
+    "body": ["Manrope", "Inter", "DM Sans", "Plus Jakarta Sans", "Nunito Sans", "Figtree", "Work Sans", "Rubik", "Karla", "IBM Plex Sans", "Source Sans 3", "Lato", "Open Sans", "Outfit", "Sora", "Rajdhani", "Exo 2"],
+    "mono": ["JetBrains Mono", "IBM Plex Mono", "Fira Code", "Space Mono", "Roboto Mono", "Source Code Pro", "DM Mono", "Share Tech Mono"],
+}
+DEFAULT_FONTS = {"heading": "Outfit", "body": "Manrope", "mono": "JetBrains Mono"}
 BUILTIN_SECTIONS = ["hero", "banners", "notice", "vendors", "products"]
 DEFAULT_SECTIONS = [{"id": t, "type": t, "enabled": True} for t in BUILTIN_SECTIONS]
 
@@ -164,6 +170,7 @@ async def get_settings() -> dict:
     s.setdefault("banners", DEFAULT_BANNERS)
     s["theme"] = {**DEFAULT_THEME, **(s.get("theme") or {})}
     s["brand"] = {**DEFAULT_BRAND, **(s.get("brand") or {})}
+    s["fonts"] = {**DEFAULT_FONTS, **(s.get("fonts") or {})}
     s.setdefault("footer", DEFAULT_FOOTER)
     s.setdefault("sections", DEFAULT_SECTIONS)
     style = s.get("category_style") or {}

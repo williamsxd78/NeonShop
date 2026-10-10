@@ -31,6 +31,35 @@ export function applyTheme(theme, persist = true) {
   if (persist) localStorage.setItem("nk_theme", JSON.stringify(theme));
 }
 
+export const FONTS = {
+  heading: ["Outfit", "Space Grotesk", "Sora", "Syne", "Unbounded", "Chakra Petch", "Orbitron", "Rajdhani", "Exo 2", "Lexend", "Poppins", "Montserrat", "Bricolage Grotesque", "Playfair Display", "Bebas Neue"],
+  body: ["Manrope", "Inter", "DM Sans", "Plus Jakarta Sans", "Nunito Sans", "Figtree", "Work Sans", "Rubik", "Karla", "IBM Plex Sans", "Source Sans 3", "Lato", "Open Sans", "Outfit", "Sora", "Rajdhani", "Exo 2"],
+  mono: ["JetBrains Mono", "IBM Plex Mono", "Fira Code", "Space Mono", "Roboto Mono", "Source Code Pro", "DM Mono", "Share Tech Mono"],
+};
+export const DEFAULT_FONTS = { heading: "Outfit", body: "Manrope", mono: "JetBrains Mono" };
+
+export function loadFont(name) {
+  const id = `nk-font-${name.replace(/ /g, "-")}`;
+  if (document.getElementById(id)) return;
+  const l = document.createElement("link");
+  l.id = id;
+  l.rel = "stylesheet";
+  l.href = `https://fonts.googleapis.com/css2?family=${name.replace(/ /g, "+")}:wght@400;500;600;700&display=swap`;
+  document.head.appendChild(l);
+}
+
+export function applyFonts(fonts, persist = true) {
+  if (!fonts) return;
+  const root = document.documentElement.style;
+  ["heading", "body", "mono"].forEach((k) => {
+    if (!FONTS[k].includes(fonts[k])) return;
+    loadFont(fonts[k]);
+    root.setProperty(`--nk-font-${k}`, `"${fonts[k]}"`);
+  });
+  if (persist) localStorage.setItem("nk_fonts", JSON.stringify(fonts));
+}
+
 export function applyCachedTheme() {
   try { applyTheme(JSON.parse(localStorage.getItem("nk_theme")), false); } catch { /* no cached theme */ }
+  try { applyFonts(JSON.parse(localStorage.getItem("nk_fonts")), false); } catch { /* no cached fonts */ }
 }

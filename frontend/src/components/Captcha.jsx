@@ -23,7 +23,7 @@ function CaptchaCanvas({ text, testId }) {
     for (let i = 0; i < 40; i++) { ctx.globalAlpha = r() * 0.35; ctx.fillStyle = lt; ctx.fillRect(r() * W, r() * H, 1.5, 1.5); }
     ctx.globalAlpha = 1;
     const chars = text.split(" ").join("  ").split("");
-    ctx.font = "bold 40px 'JetBrains Mono', monospace"; ctx.textBaseline = "middle";
+    ctx.font = `bold 40px ${getComputedStyle(document.documentElement).getPropertyValue("--nk-font-mono").trim() || "'JetBrains Mono'"}, monospace`; ctx.textBaseline = "middle";
     let x = (W - chars.length * 19) / 2;
     chars.forEach((ch) => {
       ctx.save(); ctx.translate(x, H / 2 + (r() - 0.5) * 8); ctx.rotate((r() - 0.5) * 0.35);

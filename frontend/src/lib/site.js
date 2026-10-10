@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import { applyTheme } from "@/lib/theme";
+import { applyTheme, applyFonts } from "@/lib/theme";
 
 let cache = null;
 const subs = new Set();
@@ -13,6 +13,7 @@ export async function reloadSite() {
   const { data } = await api.get("/site");
   cache = data;
   applyTheme(data.theme);
+  applyFonts(data.fonts);
   if (data.brand?.page_title) document.title = data.brand.page_title;
   subs.forEach((f) => f(data));
   return data;

@@ -19,7 +19,7 @@ import { AdminFooter } from "@/components/admin/AdminFooter";
 
 const GROUPS = [
   ["builder", "Website builder", [
-    ["branding", "Name & colors", Palette, "Store name, logo, theme colors"],
+    ["branding", "Name, colors & fonts", Palette, "Store name, logo, theme colors, fonts"],
     ["sections", "Home sections", Rows3, "Add, remove, reorder sections"],
     ["footer", "Footer", PanelBottom, "Footer columns and links"],
     ["site", "Shop content", LayoutTemplate, "Header, banners, notice, categories"],

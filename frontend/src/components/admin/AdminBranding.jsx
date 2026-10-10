@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { RotateCcw, Check } from "lucide-react";
 import { api, errMsg } from "@/lib/api";
 import { reloadSite } from "@/lib/site";
-import { applyTheme, PRESETS, THEME_KEYS } from "@/lib/theme";
+import { applyTheme, applyFonts, loadFont, PRESETS, THEME_KEYS, FONTS } from "@/lib/theme";
 import { ICONS, CategoryIcon } from "@/components/CategoryIcon";
 
 const HEX = /^#[0-9a-f]{6}$/i;
@@ -95,9 +95,65 @@ function BrandEditor({ initial }) {
   );
 }
 
+const PAIRS = {
+  "Modern (default)": { heading: "Outfit", body: "Manrope", mono: "JetBrains Mono" },
+  "Cyber": { heading: "Orbitron", body: "Rajdhani", mono: "Share Tech Mono" },
+  "Clean SaaS": { heading: "Space Grotesk", body: "Inter", mono: "IBM Plex Mono" },
+  "Bold Gaming": { heading: "Unbounded", body: "Figtree", mono: "Space Mono" },
+  "Tech": { heading: "Chakra Petch", body: "IBM Plex Sans", mono: "Fira Code" },
+  "Elegant": { heading: "Playfair Display", body: "Lato", mono: "DM Mono" },
+};
+const FONT_LABELS = [["heading", "Headings", "Titles, product names, logo"], ["body", "Body text", "Paragraphs, buttons, inputs"], ["mono", "Numbers & codes", "Prices, keys, labels"]];
+
+function FontEditor({ initial }) {
+  const [f, setF] = useState(initial);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { Object.values(FONTS).flat().forEach(loadFont); }, []);
+  useEffect(() => { applyFonts(f, false); }, [f]);
+  useEffect(() => () => applyFonts(JSON.parse(localStorage.getItem("nk_fonts") || "null") || initial, false), [initial]);
+  const save = async () => {
+    setBusy(true);
+    try { await api.put("/admin/site", { fonts: f }); applyFonts(f); await reloadSite(); toast.success("Fonts saved for the whole store"); }
+    catch (e) { toast.error(errMsg(e)); } finally { setBusy(false); }
+  };
+  const match = Object.entries(PAIRS).find(([, p]) => p.heading === f.heading && p.body === f.body && p.mono === f.mono)?.[0];
+  return (
+    <div className="nk-card space-y-4 p-5" data-testid="admin-font-editor">
+      <div><h3 className="font-display text-base">Fonts</h3><p className="text-xs text-slate-500">Pick a ready font pair or choose each font. Changes preview live; press Save to apply for everyone.</p></div>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" data-testid="font-pairs">
+        {Object.entries(PAIRS).map(([name, p]) => (
+          <button key={name} type="button" data-testid={`font-pair-${name.toLowerCase().replace(/[^a-z]+/g, "-").replace(/-$/, "")}`} onClick={() => setF(p)}
+            className={`rounded-lg border px-3 py-2 text-left ${match === name ? "border-brand/60 bg-brand/10" : "border-line hover:border-brand/30"}`}>
+            <div className="truncate text-base text-slate-100" style={{ fontFamily: `"${p.heading}"` }}>{name}</div>
+            <div className="truncate text-[11px] text-slate-500" style={{ fontFamily: `"${p.body}"` }}>{p.heading} + {p.body}</div>
+          </button>
+        ))}
+      </div>
+      <div className="grid gap-3 md:grid-cols-3">
+        {FONT_LABELS.map(([k, l, h]) => (
+          <div key={k}><label className="nk-label">{l}</label>
+            <select data-testid={`font-select-${k}`} className="nk-input" style={{ fontFamily: `"${f[k]}"` }} value={f[k]} onChange={(e) => setF({ ...f, [k]: e.target.value })}>
+              {FONTS[k].map((n) => <option key={n} value={n} style={{ fontFamily: `"${n}"` }}>{n}</option>)}
+            </select>
+            <p className="mt-1 text-[11px] text-slate-500">{h}</p></div>
+        ))}
+      </div>
+      <div className="space-y-1 rounded-xl border border-line bg-ink p-4" data-testid="font-preview">
+        <div className="font-display text-2xl text-slate-100">GameForge Runtime License</div>
+        <p className="text-sm text-slate-400">Keys are delivered instantly to your vault after purchase.</p>
+        <div className="font-mono text-sm text-brandlt">$19.99 · W5Y1-90F6-LA32</div>
+      </div>
+      <div className="flex gap-2">
+        <button type="button" data-testid="font-reset" onClick={() => setF(initial)} className="nk-btn-ghost nk-btn-sm"><RotateCcw size={13} />Undo changes</button>
+        <button type="button" data-testid="font-save" disabled={busy} onClick={save} className="nk-btn-primary nk-btn-sm ml-auto">Save fonts</button>
+      </div>
+    </div>
+  );
+}
+
 export function AdminBranding() {
   const [s, setS] = useState(null);
   useEffect(() => { api.get("/admin/site").then((r) => setS(r.data)); }, []);
   if (!s) return <div className="nk-card h-64 animate-pulse" />;
-  return <div className="space-y-6"><BrandEditor initial={s.brand} /><ThemeEditor initial={s.theme} /></div>;
+  return <div className="space-y-6"><BrandEditor initial={s.brand} /><ThemeEditor initial={s.theme} /><FontEditor initial={s.fonts} /></div>;
 }

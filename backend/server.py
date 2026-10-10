@@ -17,7 +17,7 @@ from datetime import datetime, timezone, timedelta
 from core import (db, client, logger, CATEGORIES, COINS, APP_NAME, now_iso, new_id, to_cents,
                   hash_password, verify_password, create_access_token, public_user, get_current_user,
                   require_role, require_approved_vendor, audit, notify, get_settings,
-                  init_storage, put_object, get_object, BUILTIN_SECTIONS)
+                  init_storage, put_object, get_object, BUILTIN_SECTIONS, FONT_CHOICES)
 from seed import seed_all, IMG as DEFAULT_IMAGES
 
 app = FastAPI()
@@ -226,6 +226,17 @@ class ThemeIn(BaseModel):
     line: str = Field(pattern=HEX)
 
 
+class FontsIn(BaseModel):
+    heading: str
+    body: str
+    mono: str
+
+    def check(self):
+        for k in ("heading", "body", "mono"):
+            if getattr(self, k) not in FONT_CHOICES[k]:
+                raise HTTPException(400, f"Unsupported {k} font")
+
+
 class BrandIn(BaseModel):
     name_start: str = Field(default="", max_length=30)
     name_end: str = Field(default="", max_length=30)
@@ -284,6 +295,7 @@ def clean_sections(items: List[SectionIn]) -> List[dict]:
 
 class SiteIn(BaseModel):
     theme: Optional[ThemeIn] = None
+    fonts: Optional[FontsIn] = None
     brand: Optional[BrandIn] = None
     footer: Optional[FooterIn] = None
     sections: Optional[List[SectionIn]] = Field(default=None, max_length=30)
@@ -420,7 +432,7 @@ async def site():
     return {"categories": s["categories"], "category_style": s["category_style"],
             "notice": {**s["notice"], "active": notice_active(s["notice"])}, "hero": s["hero"],
             "banners": [b for b in s["banners"] if b.get("enabled")],
-            "theme": s["theme"], "brand": s["brand"], "footer": s["footer"],
+            "theme": s["theme"], "fonts": s["fonts"], "brand": s["brand"], "footer": s["footer"],
             "sections": [x for x in s["sections"] if x.get("enabled")],
             "product_count": await db.products.count_documents({"status": "approved", **IN_STOCK})}
 
@@ -428,7 +440,7 @@ async def site():
 @api.get("/admin/site")
 async def admin_get_site(user=Depends(admin_dep)):
     s = await get_settings()
-    return {k: s[k] for k in ("categories", "category_style", "notice", "hero", "banners", "theme", "brand", "footer", "sections")} | {"notice_active": notice_active(s["notice"])}
+    return {k: s[k] for k in ("categories", "category_style", "notice", "hero", "banners", "theme", "fonts", "brand", "footer", "sections")} | {"font_choices": FONT_CHOICES} | {"notice_active": notice_active(s["notice"])}
 
 
 def parse_attrs(lines: List[str]) -> List[dict]:
@@ -1138,7 +1150,9 @@ async def admin_update_site(body: SiteIn, user=Depends(admin_dep)):
         upd["categories"] = names
         upd["category_style"] = {c.name.strip(): {"icon": c.icon, "color": c.color} for c in body.categories}
         await audit(user, "settings.categories", None, details=", ".join(names))
-    for k in ("theme", "brand", "footer"):
+    if body.fonts is not None:
+        body.fonts.check()
+    for k in ("theme", "fonts", "brand", "footer"):
         if getattr(body, k) is not None:
             upd[k] = getattr(body, k).model_dump()
             await audit(user, f"settings.{k}", None, details=f"{k} updated")
