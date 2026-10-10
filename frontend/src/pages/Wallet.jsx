@@ -15,7 +15,7 @@ export default function Wallet() {
       <PageHeader eyebrow="Wallet · USD equivalent" title="Wallet">
         <div className="nk-card px-6 py-4 text-right">
           <div className="nk-label">Available balance</div>
-          <div data-testid="wallet-balance" className="font-mono text-2xl text-[#4ADE80]">{money(w?.balance_cents ?? user?.balance_cents)}</div>
+          <div data-testid="wallet-balance" className="font-mono text-2xl text-brandlt">{money(w?.balance_cents ?? user?.balance_cents)}</div>
         </div>
       </PageHeader>
       <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
@@ -25,7 +25,7 @@ export default function Wallet() {
           {!w?.deposits?.length ? <Empty testId="deposits-empty" text="No deposits yet." /> : (
             <div className="space-y-2" data-testid="deposit-history">
               {w.deposits.map((d) => (
-                <div key={d.id} data-testid={`deposit-row-${d.id}`} className="rounded-lg border border-[#272B29] bg-[#0E100F] p-3">
+                <div key={d.id} data-testid={`deposit-row-${d.id}`} className="rounded-lg border border-line bg-deep p-3">
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-mono text-sm">{d.reference} · {COIN_LABEL[d.coin]}</span>
                     <StatusBadge status={d.status} />
@@ -47,7 +47,7 @@ export default function Wallet() {
             <thead><tr><th>Date</th><th>Type</th><th>Details</th><th className="text-right">Amount</th></tr></thead>
             <tbody>{w.transactions.map((t) => (
               <tr key={t.id}><td className="font-mono text-xs">{fmtDate(t.created_at)}</td><td className="font-mono text-xs">{t.action}</td><td className="text-xs">{t.details}</td>
-                <td className={`text-right font-mono ${t.amount_cents >= 0 ? "text-[#4ADE80]" : "text-[#FF2A5F]"}`}>{t.amount_cents >= 0 ? "+" : "-"}{money(Math.abs(t.amount_cents))}</td></tr>
+                <td className={`text-right font-mono ${t.amount_cents >= 0 ? "text-brandlt" : "text-[#FF2A5F]"}`}>{t.amount_cents >= 0 ? "+" : "-"}{money(Math.abs(t.amount_cents))}</td></tr>
             ))}</tbody>
           </table>
         )}

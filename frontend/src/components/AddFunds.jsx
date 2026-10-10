@@ -54,8 +54,8 @@ export function AddFunds({ onDone }) {
           <div className="min-w-0 space-y-3">
             <div>
               <div className="nk-label">{sel.label} address · {sel.network}</div>
-              <div className="flex items-center gap-2 rounded-lg border border-[#272B29] bg-[#0A0B0B] p-3">
-                <code data-testid="deposit-address" className="min-w-0 flex-1 break-all text-xs text-[#22C55E]">{sel.address || "Not configured"}</code>
+              <div className="flex items-center gap-2 rounded-lg border border-line bg-ink p-3">
+                <code data-testid="deposit-address" className="min-w-0 flex-1 break-all text-xs text-brand">{sel.address || "Not configured"}</code>
                 <button data-testid="copy-address-btn" onClick={() => copy(sel.address)} className="text-slate-400 hover:text-white"><Copy size={15} /></button>
               </div>
             </div>
@@ -69,10 +69,10 @@ export function AddFunds({ onDone }) {
       {!dep ? (
         <button data-testid="deposit-continue-btn" disabled={!coin || !(parseFloat(amount) >= 1) || busy} onClick={create} className="nk-btn-primary mt-6 w-full">I'll send this — generate reference</button>
       ) : (
-        <div className="mt-6 space-y-4 rounded-xl border border-[#22C55E]/30 bg-[#22C55E]/5 p-4 nk-rise" data-testid="deposit-reference-block">
+        <div className="mt-6 space-y-4 rounded-xl border border-brand/30 bg-brand/5 p-4 nk-rise" data-testid="deposit-reference-block">
           <div className="flex flex-wrap items-center justify-between gap-2 font-mono text-sm">
-            <span className="flex items-center gap-2 text-[#4ADE80]"><CheckCircle2 size={16} />Reference <b data-testid="deposit-reference">{dep.reference}</b></span>
-            <span>Expected: <b className="text-[#22C55E]">{money(dep.amount_cents)}</b> in {sel?.label}</span>
+            <span className="flex items-center gap-2 text-brandlt"><CheckCircle2 size={16} />Reference <b data-testid="deposit-reference">{dep.reference}</b></span>
+            <span>Expected: <b className="text-brand">{money(dep.amount_cents)}</b> in {sel?.label}</span>
           </div>
           <div>
             <label className="nk-label">Transaction ID (TXID / hash)</label>

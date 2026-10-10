@@ -15,6 +15,14 @@ module.exports = {
         sm: 'calc(var(--radius) - 4px)'
       },
       colors: {
+        brand: 'rgb(var(--nk-brand) / <alpha-value>)',
+        brandlt: 'rgb(var(--nk-brandlt) / <alpha-value>)',
+        info: 'rgb(var(--nk-info) / <alpha-value>)',
+        ink: 'rgb(var(--nk-ink) / <alpha-value>)',
+        panel: 'rgb(var(--nk-panel) / <alpha-value>)',
+        surface: 'rgb(var(--nk-surface) / <alpha-value>)',
+        deep: 'rgb(var(--nk-deep) / <alpha-value>)',
+        line: 'rgb(var(--nk-line) / <alpha-value>)',
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
         card: {

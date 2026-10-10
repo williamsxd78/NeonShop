@@ -66,7 +66,7 @@ export function BannersEditor({ initial }) {
     <div className="nk-card space-y-4 p-5" data-testid="admin-banners-editor">
       <div><h3 className="font-display text-base">Promo banners</h3><p className="text-xs text-slate-500">Shown as a sliding carousel at the top of the shop. Links can be internal (/vendors) or external (https://…).</p></div>
       {list.map((b, i) => (
-        <div key={b.id || i} className="space-y-3 rounded-xl border border-[#272B29] bg-[#0E100F] p-4" data-testid={`banner-row-${i}`}>
+        <div key={b.id || i} className="space-y-3 rounded-xl border border-line bg-deep p-4" data-testid={`banner-row-${i}`}>
           <div className="flex items-center gap-2">
             <span className="font-mono text-xs text-slate-500">Banner {i + 1}</span>
             <label className="ml-auto flex items-center gap-2 text-xs text-slate-400">Live<Switch data-testid={`banner-enabled-${i}`} checked={b.enabled} onCheckedChange={(v) => upd(i, { enabled: v })} /></label>

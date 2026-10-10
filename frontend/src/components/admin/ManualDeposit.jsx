@@ -20,7 +20,7 @@ export function ManualDeposit({ open, onOpenChange, onDone }) {
   };
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="border-[#272B29] bg-[#121413] sm:max-w-md" data-testid="manual-deposit-dialog">
+      <DialogContent className="border-line bg-surface sm:max-w-md" data-testid="manual-deposit-dialog">
         <DialogHeader>
           <DialogTitle className="font-display">Add funds manually</DialogTitle>
           <DialogDescription>For payments received outside the normal request flow. The user's wallet is credited instantly and they get a notification and email.</DialogDescription>

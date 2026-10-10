@@ -30,7 +30,7 @@ export function AdminUsers() {
             <tr key={u.id} data-testid={`admin-user-row-${u.id}`}>
               <td><div className="font-medium text-slate-100">{u.name}</div><div className="text-xs text-slate-500">{u.email}</div></td>
               <td className="font-mono text-xs uppercase">{u.role}</td>
-              <td className="font-mono text-[#4ADE80]">{money(u.balance_cents)}</td>
+              <td className="font-mono text-brandlt">{money(u.balance_cents)}</td>
               <td className="font-mono">{u.role === "vendor" ? money(u.earnings_cents) : "-"}</td>
               <td className="font-mono text-xs">{fmtDate(u.created_at)}</td>
               <td><StatusBadge status={u.status} /></td>
@@ -64,7 +64,7 @@ export function AdjustDialog({ user, onClose, onDone }) {
   };
   return (
     <Dialog open={!!user} onOpenChange={(o) => !o && close()}>
-      <DialogContent className="border-[#272B29] bg-[#121413] sm:max-w-md" data-testid="user-adjust-dialog">
+      <DialogContent className="border-line bg-surface sm:max-w-md" data-testid="user-adjust-dialog">
         <DialogHeader>
           <DialogTitle className="font-display">{mode === "credit" ? "Add balance" : mode === "debit" ? "Deduct balance" : "Adjust wallet"}</DialogTitle>
           <DialogDescription>{user?.email} · current {money(user?.balance_cents || 0)}{!mode && " · positive to credit, negative to debit"}</DialogDescription>

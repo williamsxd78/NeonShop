@@ -17,12 +17,12 @@ function ManageDialog({ open, onOpenChange, replies, onSaved }) {
   };
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto border-[#272B29] bg-[#0E100F] sm:max-w-2xl" data-testid="canned-manage-dialog">
+      <DialogContent className="max-h-[90vh] overflow-y-auto border-line bg-deep sm:max-w-2xl" data-testid="canned-manage-dialog">
         <DialogHeader><DialogTitle className="font-display">Quick replies</DialogTitle></DialogHeader>
-        <p className="text-xs text-slate-500">Use <code className="text-[#4ADE80]">{"{name}"}</code> and <code className="text-[#4ADE80]">{"{ref}"}</code>; they're replaced with the user's name and ticket reference.</p>
+        <p className="text-xs text-slate-500">Use <code className="text-brandlt">{"{name}"}</code> and <code className="text-brandlt">{"{ref}"}</code>; they're replaced with the user's name and ticket reference.</p>
         <div className="space-y-3">
           {list.map((r, i) => (
-            <div key={i} className="space-y-2 rounded-lg border border-[#272B29] bg-[#121413] p-3" data-testid={`canned-row-${i}`}>
+            <div key={i} className="space-y-2 rounded-lg border border-line bg-surface p-3" data-testid={`canned-row-${i}`}>
               <div className="flex gap-2">
                 <input data-testid={`canned-title-${i}`} className="nk-input" placeholder="Title" value={r.title} onChange={(e) => upd(i, "title", e.target.value)} />
                 <button data-testid={`canned-delete-${i}`} onClick={() => setList(list.filter((_, j) => j !== i))} className="nk-btn-ghost h-10 w-10 shrink-0 !p-0 text-[#FF2A5F]"><Trash2 size={14} /></button>
@@ -51,7 +51,7 @@ export function QuickReplies({ ticket, onPick }) {
         <DropdownMenuTrigger asChild>
           <button type="button" data-testid="quick-replies-btn" className="nk-btn-ghost h-11 w-11 shrink-0 !p-0" title="Quick replies"><Zap size={16} className="text-[#FFB800]" /></button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-72 border-[#272B29] bg-[#121413]" data-testid="quick-replies-menu">
+        <DropdownMenuContent align="start" className="w-72 border-line bg-surface" data-testid="quick-replies-menu">
           {(replies || []).map((r, i) => (
             <DropdownMenuItem key={i} data-testid={`quick-reply-${i}`} onSelect={() => onPick(fill(r.text))} className="flex-col items-start gap-0.5">
               <span className="text-sm text-slate-100">{r.title}</span>

@@ -8,7 +8,7 @@ import { AdjustDialog } from "@/components/admin/AdminUsers";
 function Details({ uid, onAdjusted }) {
   const [d, reload] = useFetch(`/admin/users/${uid}/details`);
   const [adjust, setAdjust] = useState(null);
-  if (!d) return <div className="h-24 animate-pulse rounded-lg bg-[#121413]" />;
+  if (!d) return <div className="h-24 animate-pulse rounded-lg bg-surface" />;
   const { user: u, stats, products, deposits } = d;
   const done = () => { reload(); onAdjusted(); };
   return (
@@ -27,13 +27,13 @@ function Details({ uid, onAdjusted }) {
       <div>
         <div className="nk-label">Products bought</div>
         {!products.length ? <p className="text-xs text-slate-500" data-testid={`ud-no-products-${uid}`}>No purchases yet.</p> : (
-          <div className="divide-y divide-[#272B29] rounded-lg border border-[#272B29]" data-testid={`ud-products-${uid}`}>
+          <div className="divide-y divide-line rounded-lg border border-line" data-testid={`ud-products-${uid}`}>
             {products.map((p) => (
               <div key={p.product_id} className="flex items-center gap-3 px-3 py-2 text-sm" data-testid={`ud-product-${p.product_id}`}>
-                <Package size={14} className="shrink-0 text-[#22D3EE]" />
+                <Package size={14} className="shrink-0 text-info" />
                 <div className="min-w-0 flex-1"><div className="truncate text-slate-100">{p.title}</div><div className="text-[11px] text-slate-500">{p.category} · last {fmtDate(p.last_at)}</div></div>
                 <span className="font-mono text-xs text-slate-400">×{p.count}</span>
-                <span className="w-20 text-right font-mono text-xs text-[#4ADE80]">{money(p.spent_cents)}</span>
+                <span className="w-20 text-right font-mono text-xs text-brandlt">{money(p.spent_cents)}</span>
               </div>
             ))}
           </div>
@@ -44,7 +44,7 @@ function Details({ uid, onAdjusted }) {
           <div className="nk-label">Recent deposits</div>
           <div className="space-y-1">{deposits.slice(0, 5).map((x) => (
             <div key={x.id} className="flex items-center gap-3 text-xs"><span className="font-mono text-slate-400">{x.reference}</span><span className="font-mono">{x.coin}</span>
-              <span className="font-mono text-[#4ADE80]">{money(x.credited_cents || x.amount_cents)}</span><StatusBadge status={x.status} /><span className="ml-auto text-slate-500">{fmtDate(x.created_at)}</span></div>
+              <span className="font-mono text-brandlt">{money(x.credited_cents || x.amount_cents)}</span><StatusBadge status={x.status} /><span className="ml-auto text-slate-500">{fmtDate(x.created_at)}</span></div>
           ))}</div>
         </div>
       )}
@@ -67,13 +67,13 @@ export function AdminUserDetails() {
         {(list || []).map((u) => (
           <div key={u.id} className="nk-card overflow-hidden">
             <button data-testid={`ud-row-${u.id}`} onClick={() => setOpen(open === u.id ? null : u.id)} className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-white/[0.02]">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#22C55E]/10 font-display text-sm text-[#4ADE80]">{(u.name || u.email)[0].toUpperCase()}</div>
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand/10 font-display text-sm text-brandlt">{(u.name || u.email)[0].toUpperCase()}</div>
               <div className="min-w-0 flex-1"><div className="truncate text-sm text-slate-100">{u.name}</div><div className="truncate text-xs text-slate-500">{u.email}</div></div>
               <span className="hidden font-mono text-[10px] uppercase text-slate-500 sm:inline">{u.role}</span>
-              <span className="font-mono text-xs text-[#4ADE80]">{money(u.balance_cents)}</span>
+              <span className="font-mono text-xs text-brandlt">{money(u.balance_cents)}</span>
               <ChevronDown size={16} className={`text-slate-500 transition-transform ${open === u.id ? "rotate-180" : ""}`} />
             </button>
-            {open === u.id && <div className="border-t border-[#272B29] p-4"><Details uid={u.id} onAdjusted={reload} /></div>}
+            {open === u.id && <div className="border-t border-line p-4"><Details uid={u.id} onAdjusted={reload} /></div>}
           </div>
         ))}
         {list && !list.length && <p className="text-sm text-slate-500" data-testid="ud-empty">No users found.</p>}

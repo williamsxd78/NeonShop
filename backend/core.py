@@ -142,12 +142,30 @@ DEFAULT_CATEGORY_STYLE = {"Software Licenses": {"icon": "key", "color": "#22D3EE
                           "Courses": {"icon": "graduation", "color": "#FF2A5F"}}
 
 
+DEFAULT_THEME = {"brand": "#22C55E", "brandlt": "#4ADE80", "info": "#22D3EE", "ink": "#0A0B0B",
+                 "panel": "#171A19", "surface": "#121413", "deep": "#0E100F", "line": "#272B29"}
+DEFAULT_BRAND = {"name_start": "Neon", "name_end": "Keys", "icon": "zap", "page_title": "NeonKeys Market",
+                 "official_store": "NeonKeys Official"}
+DEFAULT_FOOTER = {"text": "© 2026 NeonKeys · Verified vendors · Instant delivery", "columns": [
+    {"title": "Marketplace", "links": [{"label": "Shop", "url": "/"}, {"label": "Vendors", "url": "/vendors"},
+                                       {"label": "Become a vendor", "url": "/vendor/register"}]},
+    {"title": "Account", "links": [{"label": "Wallet", "url": "/wallet"}, {"label": "Key vault", "url": "/vault"},
+                                   {"label": "Orders", "url": "/orders"}]},
+    {"title": "Help", "links": [{"label": "Support", "url": "/support"}, {"label": "Notifications", "url": "/notifications"}]}]}
+BUILTIN_SECTIONS = ["hero", "banners", "notice", "vendors", "products"]
+DEFAULT_SECTIONS = [{"id": t, "type": t, "enabled": True} for t in BUILTIN_SECTIONS]
+
+
 async def get_settings() -> dict:
     s = await db.settings.find_one({"key": "global"}, {"_id": 0})
     s.setdefault("categories", list(CATEGORIES))
     s["notice"] = {**DEFAULT_NOTICE, "starts_at": None, "ends_at": None, **(s.get("notice") or {})}
     s["hero"] = {**DEFAULT_HERO, **(s.get("hero") or {})}
     s.setdefault("banners", DEFAULT_BANNERS)
+    s["theme"] = {**DEFAULT_THEME, **(s.get("theme") or {})}
+    s["brand"] = {**DEFAULT_BRAND, **(s.get("brand") or {})}
+    s.setdefault("footer", DEFAULT_FOOTER)
+    s.setdefault("sections", DEFAULT_SECTIONS)
     style = s.get("category_style") or {}
     s["category_style"] = {c: style.get(c) or DEFAULT_CATEGORY_STYLE.get(c) or {"icon": "package", "color": "#22C55E"}
                            for c in s["categories"]}

@@ -9,6 +9,7 @@ import { BulkImport } from "@/components/vendor/BulkImport";
 import { ProductForm } from "@/components/vendor/ProductForm";
 import { KeysDialog } from "@/components/vendor/KeysDialog";
 import { VendorWithdrawals } from "@/components/vendor/VendorWithdrawals";
+import { useBrand } from "@/components/Brand";
 
 function ProductsTab({ products, reload }) {
   const [edit, setEdit] = useState(undefined);
@@ -36,15 +37,15 @@ function ProductsTab({ products, reload }) {
       </div>
       {batches.length > 0 && (
         <div className="mb-4 flex flex-wrap gap-2" data-testid="vendor-batches">{batches.map(([b, n]) => (
-          <span key={b} className="flex items-center gap-2 rounded-lg border border-[#272B29] bg-[#121413] px-3 py-1.5 font-mono text-[11px] text-slate-400">
+          <span key={b} className="flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-1.5 font-mono text-[11px] text-slate-400">
             <button data-testid={`vendor-select-batch-${b}`} onClick={() => selectBatch(b)} className="hover:text-white" title="Select all items in batch">Batch {b.slice(0, 6)} · {n} items</button>
             <button data-testid={`vendor-delete-batch-${b}`} onClick={() => setDel({ batch: b, n })} className="text-[#FF2A5F] hover:text-[#FF6B8B]"><Trash2 size={13} /></button>
           </span>
         ))}</div>
       )}
       {sel.length > 0 && (
-        <div data-testid="vendor-selection-bar" className="sticky top-16 z-20 mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-[#22C55E]/40 bg-[#0E100F]/95 p-3 backdrop-blur">
-          <span data-testid="vendor-selected-count" className="font-mono text-sm text-[#4ADE80]">{sel.length} selected</span>
+        <div data-testid="vendor-selection-bar" className="sticky top-16 z-20 mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-brand/40 bg-deep/95 p-3 backdrop-blur">
+          <span data-testid="vendor-selected-count" className="font-mono text-sm text-brandlt">{sel.length} selected</span>
           <button data-testid="vendor-bulk-price-btn" onClick={() => setBulkPrice(true)} className="nk-btn-primary nk-btn-sm ml-auto">Set price</button>
           <button data-testid="vendor-bulk-delete-btn" onClick={() => setDel({ ids: sel })} className="nk-btn-danger nk-btn-sm"><Trash2 size={14} />Delete</button>
           <button data-testid="vendor-clear-selection" onClick={() => setSel([])} className="nk-btn-ghost nk-btn-sm">Clear</button>
@@ -53,14 +54,14 @@ function ProductsTab({ products, reload }) {
       {!products?.length ? <Empty testId="vendor-products-empty" text="No products yet. Create your first listing." /> : (
         <div className="nk-card overflow-x-auto">
           <table className="nk-table" data-testid="vendor-products-table">
-            <thead><tr><th className="w-8"><input type="checkbox" data-testid="vendor-select-all" className="accent-[#22C55E]" checked={allOn} onChange={() => setSel(allOn ? [] : products.map((p) => p.id))} /></th><th>Product</th><th>Category</th><th>Your price</th><th>Live price</th><th>Stock</th><th>Status</th><th /></tr></thead>
+            <thead><tr><th className="w-8"><input type="checkbox" data-testid="vendor-select-all" className="accent-brand" checked={allOn} onChange={() => setSel(allOn ? [] : products.map((p) => p.id))} /></th><th>Product</th><th>Category</th><th>Your price</th><th>Live price</th><th>Stock</th><th>Status</th><th /></tr></thead>
             <tbody>{products.map((p) => (
-              <tr key={p.id} data-testid={`vendor-product-row-${p.id}`} className={sel.includes(p.id) ? "bg-[#22C55E]/[0.05]" : ""}>
-                <td><input type="checkbox" data-testid={`vendor-select-${p.id}`} className="accent-[#22C55E]" checked={sel.includes(p.id)} onChange={() => toggle(p.id)} /></td>
+              <tr key={p.id} data-testid={`vendor-product-row-${p.id}`} className={sel.includes(p.id) ? "bg-brand/[0.05]" : ""}>
+                <td><input type="checkbox" data-testid={`vendor-select-${p.id}`} className="accent-brand" checked={sel.includes(p.id)} onChange={() => toggle(p.id)} /></td>
                 <td className="font-medium text-slate-100">{p.title}<div className="font-mono text-[10px] uppercase text-slate-500">{p.delivery_type === "content" ? "content delivery" : "key delivery"}{p.tags?.length ? ` · #${p.tags.join(" #")}` : ""}</div>{p.reason && <div className="text-xs text-[#FF2A5F]">{p.reason}</div>}</td>
                 <td className="text-xs">{p.category}</td>
                 <td className="font-mono">{money(p.vendor_price_cents ?? p.price_cents)}</td>
-                <td className="font-mono text-[#22C55E]">{money(p.price_cents)}</td>
+                <td className="font-mono text-brand">{money(p.price_cents)}</td>
                 <td className="font-mono">{p.delivery_type === "content" ? "∞" : p.stock_count}</td>
                 <td><StatusBadge status={p.status} /></td>
                 <td className="whitespace-nowrap text-right">
@@ -96,7 +97,7 @@ function SalesTab() {
         <tbody>{sales.map((s) => (
           <tr key={s.id}><td className="font-mono text-xs">{fmtDate(s.created_at)}</td><td>{s.product_title}</td><td className="text-xs">{s.buyer_email}</td>
             <td className="font-mono">{money(s.price_cents)}</td><td className="font-mono text-xs text-slate-500">{s.commission_pct}% · {money(s.commission_cents)}</td>
-            <td className="text-right font-mono text-[#4ADE80]">{money(s.vendor_earning_cents)}</td></tr>
+            <td className="text-right font-mono text-brandlt">{money(s.vendor_earning_cents)}</td></tr>
         ))}</tbody>
       </table>
     </div>
@@ -111,6 +112,7 @@ export default function VendorDashboard({ embedded }) {
   const reload = () => { reloadStats(); reloadProducts(); refresh(); };
 
   const isAdmin = user.role === "admin";
+  const brand = useBrand();
   if (!isAdmin && user.vendor_status !== "approved") {
     const rejected = user.vendor_status === "rejected";
     return (
@@ -125,17 +127,17 @@ export default function VendorDashboard({ embedded }) {
   return (
     <div>
       {!embedded && <PageHeader eyebrow={user.store_name} title="Vendor dashboard" />}
-      {isAdmin && <p className="mb-4 text-xs text-slate-500" data-testid="admin-store-note">Sold as <b className="text-slate-300">NeonKeys Official</b>. Your listings go live instantly and 100% of each sale is platform revenue.</p>}
+      {isAdmin && <p className="mb-4 text-xs text-slate-500" data-testid="admin-store-note">Sold as <b className="text-slate-300">{brand.official_store}</b>. Your listings go live instantly and 100% of each sale is platform revenue.</p>}
       <FilterTabs value={tab} onChange={setTab} options={isAdmin ? ["overview", "products", "sales"] : ["overview", "products", "sales", "withdrawals"]} testPrefix="vendor-tab" />
       {tab === "overview" && stats && (
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4" data-testid="vendor-overview">
-          <Stat testId="vstat-earnings" label="Earnings balance" value={money(stats.earnings_cents)} accent="#4ADE80" />
+          <Stat testId="vstat-earnings" label="Earnings balance" value={money(stats.earnings_cents)} accent="rgb(var(--nk-brandlt))" />
           <Stat testId="vstat-sales" label="Total sales" value={stats.total_sales} />
           <Stat testId="vstat-gross" label="Gross volume" value={money(stats.gross_cents)} accent="#A855F7" />
           <Stat testId="vstat-commission" label="Your commission rate" value={`${stats.commission_pct}%`} accent="#FFB800" />
           <Stat label="Products" value={stats.products} />
-          <Stat label="Live listings" value={stats.live_products} accent="#4ADE80" />
-          <Stat label="Net earned (all time)" value={money(stats.net_cents)} accent="#4ADE80" />
+          <Stat label="Live listings" value={stats.live_products} accent="rgb(var(--nk-brandlt))" />
+          <Stat label="Net earned (all time)" value={money(stats.net_cents)} accent="rgb(var(--nk-brandlt))" />
         </div>
       )}
       {tab === "products" && <ProductsTab products={products} reload={reload} />}

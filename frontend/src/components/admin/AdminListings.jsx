@@ -8,12 +8,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 
 const Preview = ({ p, onClose }) => (
   <Dialog open={!!p} onOpenChange={(o) => !o && onClose()}>
-    <DialogContent className="max-h-[90vh] overflow-y-auto border-[#272B29] bg-[#0E100F] sm:max-w-lg" data-testid="listing-preview-dialog">
+    <DialogContent className="max-h-[90vh] overflow-y-auto border-line bg-deep sm:max-w-lg" data-testid="listing-preview-dialog">
       <DialogHeader><DialogTitle className="font-display">{p?.title}</DialogTitle></DialogHeader>
       {p && <div className="space-y-4 text-sm">
         {p.image && <img src={imgSrc(p.image)} alt="" className="h-40 w-full rounded-lg object-cover" />}
         <div><div className="nk-label">Shown to buyers</div><p className="whitespace-pre-line text-slate-300">{p.description || "-"}</p></div>
-        <div className="flex flex-wrap gap-1.5">{(p.tags || []).map((t) => <span key={t} className="rounded-md border border-[#272B29] px-2 py-0.5 font-mono text-[11px] uppercase text-slate-400">#{t}</span>)}</div>
+        <div className="flex flex-wrap gap-1.5">{(p.tags || []).map((t) => <span key={t} className="rounded-md border border-line px-2 py-0.5 font-mono text-[11px] uppercase text-slate-400">#{t}</span>)}</div>
         <div><div className="nk-label">Buyer receives · {p.delivery_type === "content" ? "same content for all (unlimited)" : `unique key (${p.stock_count} in stock)`}</div>
           <pre data-testid="listing-preview-content" className="max-h-48 overflow-auto whitespace-pre-wrap rounded-lg border border-[#A855F7]/25 bg-[#A855F7]/[0.06] p-3 font-mono text-xs">{p.delivery_content || "(no extra content)"}</pre></div>
       </div>}
@@ -47,7 +47,7 @@ export function AdminListings({ onChange }) {
                   <div><div className="font-medium text-slate-100">{p.title}</div><div className="text-xs text-slate-500">{p.category} · {fmtDate(p.created_at)}{p.batch_id && <span className="font-mono"> · batch {p.batch_id.slice(0, 6)}</span>}</div></div></div></td>
                 <td className="text-xs">{p.vendor_name}</td>
                 <td className="font-mono">{money(p.vendor_price_cents ?? p.price_cents)}</td>
-                <td className="font-mono text-[#22C55E]">{money(p.price_cents)}</td>
+                <td className="font-mono text-brand">{money(p.price_cents)}</td>
                 <td className="font-mono">{p.delivery_type === "content" ? "∞" : p.stock_count}</td>
                 <td><StatusBadge status={p.status} /></td>
                 <td className="whitespace-nowrap text-right">

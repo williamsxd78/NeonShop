@@ -5,27 +5,27 @@ import { useFetch } from "@/lib/useFetch";
 import { PageHeader, Empty } from "@/components/Shared";
 
 const Avatar = ({ name }) => (
-  <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-[#272B29] bg-[#22C55E]/10 font-display text-lg font-bold text-[#4ADE80]">{(name || "?")[0].toUpperCase()}</div>
+  <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-line bg-brand/10 font-display text-lg font-bold text-brandlt">{(name || "?")[0].toUpperCase()}</div>
 );
 
 const VendorCard = ({ v, featured }) => (
-  <div data-testid={`vendor-card-${v.id}`} className={`nk-card nk-card-hover rounded-2xl p-5 ${featured ? "border-[#22C55E]/40" : ""}`}>
+  <div data-testid={`vendor-card-${v.id}`} className={`nk-card nk-card-hover rounded-2xl p-5 ${featured ? "border-brand/40" : ""}`}>
     <div className="flex items-start gap-3">
       <Avatar name={v.store_name || v.name} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
           <span className="truncate font-display font-semibold">{v.store_name || v.name}</span>
-          <BadgeCheck size={16} className="shrink-0 text-[#4ADE80]" />
+          <BadgeCheck size={16} className="shrink-0 text-brandlt" />
           {featured && <span className="ml-auto flex items-center gap-1 rounded-full bg-[#FFB800]/15 px-2 py-0.5 font-mono text-[10px] font-bold uppercase text-[#FFB800]"><Star size={10} />Featured</span>}
         </div>
         <p className="font-mono text-xs text-slate-500">{v.products} products · {v.sales} sales</p>
       </div>
     </div>
     <div className="mt-3 flex flex-wrap gap-1.5">
-      {v.categories.map((c) => <span key={c} className="rounded-md bg-[#22D3EE]/10 px-2 py-0.5 font-mono text-[10px] uppercase text-[#22D3EE]">{c}</span>)}
+      {v.categories.map((c) => <span key={c} className="rounded-md bg-info/10 px-2 py-0.5 font-mono text-[10px] uppercase text-info">{c}</span>)}
     </div>
     <div className="mt-4 flex justify-end">
-      <Link to={`/?vendor=${v.id}`} data-testid={`vendor-view-${v.id}`} className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#4ADE80] hover:underline"><ExternalLink size={14} />View products</Link>
+      <Link to={`/?vendor=${v.id}`} data-testid={`vendor-view-${v.id}`} className="inline-flex items-center gap-1.5 text-sm font-semibold text-brandlt hover:underline"><ExternalLink size={14} />View products</Link>
     </div>
   </div>
 );
@@ -36,8 +36,8 @@ export function FeaturedVendors() {
   return (
     <section className="mb-8" data-testid="featured-vendors">
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="flex items-center gap-2 font-display text-lg font-bold"><BadgeCheck size={18} className="text-[#4ADE80]" />Verified vendors</h2>
-        <Link to="/vendors" data-testid="all-vendors-link" className="text-sm text-[#4ADE80] hover:underline">All vendors</Link>
+        <h2 className="flex items-center gap-2 font-display text-lg font-bold"><BadgeCheck size={18} className="text-brandlt" />Verified vendors</h2>
+        <Link to="/vendors" data-testid="all-vendors-link" className="text-sm text-brandlt hover:underline">All vendors</Link>
       </div>
       <div className="no-scrollbar grid auto-cols-[85%] grid-flow-col gap-4 overflow-x-auto sm:auto-cols-[46%] lg:auto-cols-[32%]">
         {list.slice(0, 6).map((v, i) => <VendorCard key={v.id} v={v} featured={i === 0} />)}

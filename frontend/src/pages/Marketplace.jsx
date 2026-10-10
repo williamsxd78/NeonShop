@@ -10,12 +10,15 @@ import { useAuth } from "@/context/AuthContext";
 import { ProductCard } from "@/components/ProductCard";
 import { FeaturedVendors } from "@/pages/Vendors";
 import { Empty } from "@/components/Shared";
+import { TextSection, ColumnsSection } from "@/components/HomeSections";
+
+const DEFAULT_ORDER = ["hero", "banners", "notice", "vendors", "products"].map((t) => ({ id: t, type: t, enabled: true }));
 
 const SORTS = [["new", "Newest"], ["popular", "Best sellers"], ["price_asc", "Price: low → high"], ["price_desc", "Price: high → low"]];
 
 export default function Marketplace() {
   const { user } = useAuth();
-  const { categories, category_style: style, notice, hero, banners, product_count } = useSite();
+  const { categories, category_style: style, notice, hero, banners, product_count, sections } = useSite();
   const [params, setParams] = useSearchParams();
   const vendor = params.get("vendor") || "";
   const [items, setItems] = useState(null);
@@ -35,16 +38,17 @@ export default function Marketplace() {
     return () => clearTimeout(t);
   }, [q, cat, sort, vendor, tick, attrs, active]);
 
-  return (
-    <div>
-      {hero?.enabled && !vendor && <ShopHero hero={hero} count={product_count} />}
-      {!vendor && <BannerCarousel banners={banners} />}
+  const order = vendor ? [{ id: "products", type: "products" }] : sections || DEFAULT_ORDER;
+  const heroShown = !vendor && hero?.enabled && order.some((x) => x.type === "hero");
+
+  const products = (
+    <div key="products" data-testid="home-section-products">
       <div className="mb-5 flex items-center gap-3 nk-rise">
-        {vendor && <button onClick={() => setParams({})} data-testid="clear-vendor-filter" className="grid h-11 w-11 place-items-center rounded-xl border border-[#272B29] bg-[#171A19] text-slate-300"><ArrowLeft size={18} /></button>}
-        {(vendor || !hero?.enabled) && <h1 className="font-display text-2xl font-semibold tracking-tight">{vendor && items?.[0] ? items[0].vendor_name : "Shop"}</h1>}
+        {vendor && <button onClick={() => setParams({})} data-testid="clear-vendor-filter" className="grid h-11 w-11 place-items-center rounded-xl border border-line bg-panel text-slate-300"><ArrowLeft size={18} /></button>}
+        {!heroShown && <h1 className="font-display text-2xl font-semibold tracking-tight">{vendor && items?.[0] ? items[0].vendor_name : "Shop"}</h1>}
         <div className="ml-auto flex items-center gap-2">
-          {user && <Link to="/wallet" data-testid="shop-balance" className="rounded-lg border border-[#272B29] bg-[#121413] px-3 py-2 font-mono text-xs text-slate-500">Balance <span className="ml-1 font-semibold text-[#4ADE80]">{money(user.balance_cents)}</span></Link>}
-          {user && <Link to="/vault" data-testid="shop-my-keys" className="hidden rounded-lg border border-[#272B29] bg-[#171A19] px-3 py-2 text-xs font-semibold text-slate-300 sm:block">My Keys</Link>}
+          {user && <Link to="/wallet" data-testid="shop-balance" className="rounded-lg border border-line bg-surface px-3 py-2 font-mono text-xs text-slate-500">Balance <span className="ml-1 font-semibold text-brandlt">{money(user.balance_cents)}</span></Link>}
+          {user && <Link to="/vault" data-testid="shop-my-keys" className="hidden rounded-lg border border-line bg-panel px-3 py-2 text-xs font-semibold text-slate-300 sm:block">My Keys</Link>}
         </div>
       </div>
 
@@ -60,12 +64,12 @@ export default function Marketplace() {
 
       <div className="no-scrollbar mb-5 flex gap-2 overflow-x-auto">
         {["", ...categories].map((c) => {
-          const st = c ? style[c] || {} : { color: "#22C55E" };
+          const st = c ? style[c] || {} : { color: "rgb(var(--nk-brand))" };
           const on = cat === c;
           return (
             <button key={c || "all"} data-testid={`category-tab-${(c || "all").toLowerCase().replace(/ /g, "-")}`} onClick={() => setCat(c)}
-              style={on ? { borderColor: `${st.color}99`, background: `${st.color}1F`, color: st.color } : undefined}
-              className={`flex items-center gap-2 whitespace-nowrap rounded-lg border px-4 py-2 text-sm transition-colors ${on ? "" : "border-[#272B29] bg-[#171A19] text-slate-400 hover:text-white"}`}>
+              style={on ? { borderColor: `color-mix(in srgb, ${st.color} 60%, transparent)`, background: `color-mix(in srgb, ${st.color} 12%, transparent)`, color: st.color } : undefined}
+              className={`flex items-center gap-2 whitespace-nowrap rounded-lg border px-4 py-2 text-sm transition-colors ${on ? "" : "border-line bg-panel text-slate-400 hover:text-white"}`}>
               {c && <CategoryIcon name={st.icon} size={14} style={on ? undefined : { color: st.color }} />}
               {c || "All"}
             </button>
@@ -80,7 +84,7 @@ export default function Marketplace() {
             const slug = f.key.toLowerCase().replace(/[^a-z0-9]+/g, "-");
             return (
               <select key={f.key} data-testid={`attr-filter-${slug}`} value={attrs[f.key] || ""} onChange={(e) => setAttrs({ ...attrs, [f.key]: e.target.value })}
-                className={`rounded-lg border bg-[#171A19] px-3 py-2 text-sm outline-none ${attrs[f.key] ? "border-[#22C55E]/60 text-[#4ADE80]" : "border-[#272B29] text-slate-300"}`}>
+                className={`rounded-lg border bg-panel px-3 py-2 text-sm outline-none ${attrs[f.key] ? "border-brand/60 text-brandlt" : "border-line text-slate-300"}`}>
                 <option value="">{f.key}: all</option>
                 {f.values.map((v) => <option key={v.value} value={v.value}>{`${v.value} (${v.count})`}</option>)}
               </select>
@@ -89,10 +93,6 @@ export default function Marketplace() {
           {active > 0 && <button data-testid="attr-filters-clear" onClick={() => setAttrs({})} className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-white"><X size={13} />Clear ({active})</button>}
         </div>
       )}
-
-      {notice?.active && <div className="mb-6"><NoticeBox n={notice} /></div>}
-
-      {!vendor && !q && !cat && <FeaturedVendors />}
 
       <div className="mb-4 flex items-center justify-between">
         <span data-testid="products-count" className="font-mono text-sm text-slate-500">{items ? `${items.length} products found` : "Loading…"}</span>
@@ -111,4 +111,16 @@ export default function Marketplace() {
       {vendor && <button onClick={() => setParams({})} className="mt-6 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-white"><X size={14} />Clear vendor filter</button>}
     </div>
   );
+
+  const render = (x) => {
+    if (x.type === "products") return products;
+    if (x.type === "hero") return heroShown ? <ShopHero key={x.id} hero={hero} count={product_count} /> : null;
+    if (x.type === "banners") return <BannerCarousel key={x.id} banners={banners} />;
+    if (x.type === "notice") return notice?.active ? <div key={x.id} className="mb-6"><NoticeBox n={notice} /></div> : null;
+    if (x.type === "vendors") return <FeaturedVendors key={x.id} />;
+    if (x.type === "text") return <TextSection key={x.id} s={x} />;
+    if (x.type === "columns") return <ColumnsSection key={x.id} s={x} />;
+    return null;
+  };
+  return <div>{order.map(render)}</div>;
 }

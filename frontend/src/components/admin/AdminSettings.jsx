@@ -29,7 +29,7 @@ export function AdminSettings({ settings, onSaved }) {
         <h3 className="text-lg font-bold">Crypto deposit addresses</h3>
         <div className="grid gap-4 sm:grid-cols-2">
           {Object.keys(COIN_LABEL).map((c) => (
-            <div key={c} className="flex gap-3 rounded-lg border border-[#272B29] bg-[#0E100F] p-3">
+            <div key={c} className="flex gap-3 rounded-lg border border-line bg-deep p-3">
               <div className="h-fit rounded bg-white p-1.5"><QRCodeSVG value={addr[c] || "-"} size={56} /></div>
               <div className="min-w-0 flex-1">
                 <label className="nk-label">{COIN_LABEL[c]}</label>

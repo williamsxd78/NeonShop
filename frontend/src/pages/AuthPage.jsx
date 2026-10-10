@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
-import { Zap, Mail, Lock, Eye, EyeOff, User, Store, ArrowLeft, LogIn, UserPlus, ArrowRight } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, User, Store, ArrowLeft, LogIn, UserPlus, ArrowRight } from "lucide-react";
 import { api, errMsg } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { useCaptcha, CaptchaField } from "@/components/Captcha";
+import { BrandName, useBrand } from "@/components/Brand";
+import { CategoryIcon } from "@/components/CategoryIcon";
 
 const Field = ({ label, icon: Icon, right, children }) => (
   <div>
@@ -14,9 +16,10 @@ const Field = ({ label, icon: Icon, right, children }) => (
     </div>
   </div>
 );
-const inp = "nk-input h-12 rounded-xl bg-[#0E100F] pl-11 text-[15px]";
+const inp = "nk-input h-12 rounded-xl bg-deep pl-11 text-[15px]";
 
 export default function AuthPage({ mode, vendor = false }) {
+  const brand = useBrand();
   const isLogin = mode === "login";
   const { user, signIn } = useAuth();
   const nav = useNavigate();
@@ -49,16 +52,16 @@ export default function AuthPage({ mode, vendor = false }) {
 
   return (
     <div className="grain relative min-h-screen overflow-hidden px-4 py-10">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-[420px] bg-[radial-gradient(ellipse_at_top,rgba(34,197,94,0.14),transparent_65%)]" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-[420px] bg-[radial-gradient(ellipse_at_top,rgb(var(--nk-brand)/0.14),transparent_65%)]" />
       <div className="relative z-10 mx-auto w-full max-w-md nk-rise">
         <Link to="/" data-testid="auth-brand" className="mb-3 flex items-center justify-center gap-3">
-          <span className="grid h-11 w-11 place-items-center rounded-xl text-[#4ADE80] drop-shadow-[0_0_12px_rgba(34,197,94,0.6)]"><Zap size={30} /></span>
-          <span className="font-display text-3xl font-semibold tracking-tight">Neon<span className="text-[#4ADE80]">Keys</span></span>
+          <span className="grid h-11 w-11 place-items-center rounded-xl text-brandlt drop-shadow-[0_0_12px_rgb(var(--nk-brand)/0.6)]"><CategoryIcon name={brand.icon} size={30} /></span>
+          <BrandName className="text-3xl font-semibold" />
         </Link>
-        {vendor && <div className="mb-2 flex justify-center"><span data-testid="vendor-portal-badge" className="inline-flex items-center gap-1.5 rounded-full border border-[#22C55E]/30 bg-[#22C55E]/10 px-3 py-1 font-mono text-[10px] uppercase tracking-wider text-[#4ADE80]"><Store size={12} />Vendor portal</span></div>}
+        {vendor && <div className="mb-2 flex justify-center"><span data-testid="vendor-portal-badge" className="inline-flex items-center gap-1.5 rounded-full border border-brand/30 bg-brand/10 px-3 py-1 font-mono text-[10px] uppercase tracking-wider text-brandlt"><Store size={12} />Vendor portal</span></div>}
         <p className="mb-8 text-center font-display text-lg text-slate-400">{vendor ? (isLogin ? "Sign in to manage your store" : "Open your vendor store") : isLogin ? "Secure access portal" : "Create your account"}</p>
 
-        <form onSubmit={submit} data-testid={`${mode}-form`} className="space-y-5 rounded-3xl border border-[#272B29] bg-[#161918]/90 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.45)] sm:p-8">
+        <form onSubmit={submit} data-testid={`${mode}-form`} className="space-y-5 rounded-3xl border border-line bg-[#161918]/90 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.45)] sm:p-8">
           {!isLogin && <Link to={vendor ? "/vendor/login" : "/login"} data-testid="register-back-link" className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white"><ArrowLeft size={16} />Back</Link>}
           {!isLogin && <Field label="Name" icon={User}><input data-testid="register-name-input" className={inp} required placeholder="Your name" value={f.name} onChange={set("name")} /></Field>}
           {!isLogin && vendor && <Field label="Store name" icon={Store}><input data-testid="register-store-input" className={inp} required placeholder="Your store name" value={f.store_name} onChange={set("store_name")} /></Field>}
@@ -72,21 +75,21 @@ export default function AuthPage({ mode, vendor = false }) {
           {!isLogin && vendor && <p className="text-xs text-[#FFB800]">Vendor accounts require admin approval before listing products.</p>}
           {err && <p data-testid={`${mode}-error`} className="rounded-lg border border-[#FF2A5F]/30 bg-[#FF2A5F]/10 px-3 py-2 text-sm text-[#FF6B8B]">{err}</p>}
           <button data-testid={`${mode}-submit-button`} disabled={busy}
-            className="flex h-12 w-full items-center justify-center gap-3 rounded-xl bg-gradient-to-r from-[#22C55E] to-[#10B981] font-display text-base font-semibold text-[#06140C] shadow-[0_8px_30px_rgba(34,197,94,0.25)] transition-transform active:scale-[0.98] disabled:opacity-60">
+            className="flex h-12 w-full items-center justify-center gap-3 rounded-xl bg-gradient-to-r from-brand to-brand/75 font-display text-base font-semibold text-[#06140C] shadow-[0_8px_30px_rgb(var(--nk-brand)/0.25)] transition-transform active:scale-[0.98] disabled:opacity-60">
             {isLogin ? <LogIn size={20} /> : <UserPlus size={20} />}{busy ? "Please wait…" : isLogin ? "Sign in" : "Create account"}
           </button>
           <p className="text-center text-[15px] text-slate-400">
             {isLogin ? "Don't have an account? " : "Already have an account? "}
-            <Link data-testid={`${mode}-switch-link`} to={`${vendor ? "/vendor" : ""}${isLogin ? "/register" : "/login"}`} className="inline-flex items-center gap-1 font-semibold text-[#4ADE80] hover:underline">
+            <Link data-testid={`${mode}-switch-link`} to={`${vendor ? "/vendor" : ""}${isLogin ? "/register" : "/login"}`} className="inline-flex items-center gap-1 font-semibold text-brandlt hover:underline">
               {isLogin ? <>Create account <ArrowRight size={15} /></> : "Sign in"}
             </Link>
           </p>
         </form>
         <p className="mt-6 text-center text-sm text-slate-400" data-testid="portal-switch">
-          {vendor ? <>Not a vendor? <Link data-testid="buyer-portal-link" to={isLogin ? "/login" : "/register"} className="font-semibold text-[#4ADE80] hover:underline">Buyer {isLogin ? "login" : "sign up"}</Link></>
-            : <>Are you a vendor? <Link data-testid="vendor-portal-link" to={isLogin ? "/vendor/login" : "/vendor/register"} className="inline-flex items-center gap-1 font-semibold text-[#4ADE80] hover:underline">Vendor {isLogin ? "login" : "sign up"} <ArrowRight size={14} /></Link></>}
+          {vendor ? <>Not a vendor? <Link data-testid="buyer-portal-link" to={isLogin ? "/login" : "/register"} className="font-semibold text-brandlt hover:underline">Buyer {isLogin ? "login" : "sign up"}</Link></>
+            : <>Are you a vendor? <Link data-testid="vendor-portal-link" to={isLogin ? "/vendor/login" : "/vendor/register"} className="inline-flex items-center gap-1 font-semibold text-brandlt hover:underline">Vendor {isLogin ? "login" : "sign up"} <ArrowRight size={14} /></Link></>}
         </p>
-        <p className="mt-3 text-center font-mono text-xs text-slate-600">NeonKeys · {isLogin ? "Secure auth" : "Secure registration"}</p>
+        <p className="mt-3 text-center font-mono text-xs text-slate-600">{brand.name_start}{brand.name_end} · {isLogin ? "Secure auth" : "Secure registration"}</p>
       </div>
     </div>
   );

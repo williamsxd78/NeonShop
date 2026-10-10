@@ -25,7 +25,7 @@ export function KeysDialog({ product, onOpenChange, onChanged }) {
 
   return (
     <Dialog open={!!product} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto border-[#272B29] bg-[#121413] sm:max-w-xl" data-testid="keys-dialog">
+      <DialogContent className="max-h-[90vh] overflow-y-auto border-line bg-surface sm:max-w-xl" data-testid="keys-dialog">
         <DialogHeader><DialogTitle className="font-display">Key stock · {product?.title}</DialogTitle></DialogHeader>
         <div>
           <label className="nk-label">Add keys (one per line)</label>
@@ -35,7 +35,7 @@ export function KeysDialog({ product, onOpenChange, onChanged }) {
         <div className="font-mono text-xs text-slate-400" data-testid="keys-available-count">{avail} available · {keys.length - avail} sold</div>
         <div className="max-h-64 space-y-1 overflow-y-auto">
           {keys.map((k) => (
-            <div key={k.id} className="flex items-center gap-2 rounded-md border border-[#272B29] bg-[#0E100F] px-3 py-2">
+            <div key={k.id} className="flex items-center gap-2 rounded-md border border-line bg-deep px-3 py-2">
               <code className="min-w-0 flex-1 truncate text-xs">{k.key}</code>
               <StatusBadge status={k.status} />
               {k.status === "available" && <button data-testid={`key-delete-${k.id}`} onClick={() => del(k.id)} className="text-slate-500 hover:text-[#FF2A5F]"><Trash2 size={14} /></button>}

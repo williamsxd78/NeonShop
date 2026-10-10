@@ -23,7 +23,7 @@ export function AdminWithdrawals({ onChange }) {
               <tr key={w.id} data-testid={`admin-wd-row-${w.id}`}>
                 <td className="font-mono text-xs">{fmtDate(w.created_at)}</td>
                 <td className="text-xs">{w.vendor_name}<div className="text-slate-500">{w.vendor_email}</div></td>
-                <td className="font-mono text-[#22C55E]">{money(w.amount_cents)}</td>
+                <td className="font-mono text-brand">{money(w.amount_cents)}</td>
                 <td className="text-xs">{COIN_LABEL[w.coin]}</td>
                 <td className="max-w-[200px]"><div className="flex items-center gap-1"><span className="truncate font-mono text-xs">{w.address}</span>
                   <button onClick={() => { navigator.clipboard.writeText(w.address); toast.success("Copied"); }} className="text-slate-500 hover:text-white"><Copy size={12} /></button></div></td>

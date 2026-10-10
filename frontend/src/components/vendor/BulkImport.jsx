@@ -25,21 +25,21 @@ const makeTitle = (b, titles, prefix, n) => titles.filter((i) => i < b.length).m
 const SEPS = [["dashes", "Line of dashes ----"], ["blank", "Empty line"], ["custom", "Custom text"]];
 const Steps = ({ step }) => (
   <div className="mb-2 flex gap-2">{["Sample", "Visible fields", "Item name", "Bulk upload"].map((l, i) => (
-    <div key={l} className={`flex-1 rounded-full border px-2 py-1 text-center font-mono text-[10px] uppercase ${step === i ? "border-[#22C55E]/60 bg-[#22C55E]/10 text-[#4ADE80]" : step > i ? "border-[#272B29] text-[#4ADE80]" : "border-[#272B29] text-slate-500"}`}>{i + 1}. {l}</div>
+    <div key={l} className={`flex-1 rounded-full border px-2 py-1 text-center font-mono text-[10px] uppercase ${step === i ? "border-brand/60 bg-brand/10 text-brandlt" : step > i ? "border-line text-brandlt" : "border-line text-slate-500"}`}>{i + 1}. {l}</div>
   ))}</div>
 );
 
 function LinePicker({ lines, pub, setPub }) {
   return (
-    <div className="max-h-[42vh] overflow-y-auto rounded-xl border border-[#272B29]" data-testid="bulk-line-picker">
+    <div className="max-h-[42vh] overflow-y-auto rounded-xl border border-line" data-testid="bulk-line-picker">
       {lines.map((ln, i) => {
         const on = pub.includes(i);
         return (
-          <div key={i} className={`flex items-center gap-2 border-b border-[#272B29] px-3 py-2 last:border-0 ${on ? "bg-[#22D3EE]/[0.06]" : ""}`}>
+          <div key={i} className={`flex items-center gap-2 border-b border-line px-3 py-2 last:border-0 ${on ? "bg-info/[0.06]" : ""}`}>
             <span className="w-6 font-mono text-[10px] text-slate-600">{i + 1}</span>
             <code className="min-w-0 flex-1 break-all text-xs text-slate-200">{ln}</code>
             <button type="button" data-testid={`bulk-line-toggle-${i}`} onClick={() => setPub(on ? pub.filter((x) => x !== i) : [...pub, i].sort((a, b) => a - b))}
-              className={`flex w-24 items-center justify-center gap-1 rounded-md border px-2 py-1 text-[11px] font-semibold ${on ? "border-[#22D3EE]/50 bg-[#22D3EE]/10 text-[#22D3EE]" : "border-[#272B29] text-slate-500"}`}>
+              className={`flex w-24 items-center justify-center gap-1 rounded-md border px-2 py-1 text-[11px] font-semibold ${on ? "border-info/50 bg-info/10 text-info" : "border-line text-slate-500"}`}>
               {on ? <><Eye size={12} />Public</> : <><Lock size={12} />Hidden</>}
             </button>
           </div>
@@ -52,12 +52,12 @@ function LinePicker({ lines, pub, setPub }) {
 function NamePicker({ lines, titles, setTitles }) {
   const opts = [...lines.map((l, i) => [i, fieldValue(l), l]), [-1, null, null]];
   return (
-    <div className="max-h-[40vh] overflow-y-auto rounded-xl border border-[#272B29]" data-testid="bulk-name-picker">
+    <div className="max-h-[40vh] overflow-y-auto rounded-xl border border-line" data-testid="bulk-name-picker">
       {opts.map(([i, val, raw]) => {
         const on = i === -1 ? !titles.length : titles[0] === i;
         return (
           <button type="button" key={i} data-testid={i === -1 ? "bulk-name-none" : `bulk-name-option-${i}`} onClick={() => setTitles(i === -1 ? [] : [i])}
-            className={`flex w-full items-center gap-3 border-b border-[#272B29] px-3 py-2.5 text-left last:border-0 ${on ? "bg-[#FFB800]/[0.08]" : "hover:bg-white/[0.02]"}`}>
+            className={`flex w-full items-center gap-3 border-b border-line px-3 py-2.5 text-left last:border-0 ${on ? "bg-[#FFB800]/[0.08]" : "hover:bg-white/[0.02]"}`}>
             <span className={`grid h-4 w-4 shrink-0 place-items-center rounded-full border ${on ? "border-[#FFB800]" : "border-slate-600"}`}>{on && <span className="h-2 w-2 rounded-full bg-[#FFB800]" />}</span>
             {i === -1 ? <span className="text-xs text-slate-400">No name field (use "Item #1, #2…")</span> : (
               <div className="min-w-0"><div className="truncate text-sm text-slate-100">{val}</div><div className="truncate font-mono text-[10px] text-slate-500">{raw}</div></div>
@@ -70,11 +70,11 @@ function NamePicker({ lines, titles, setTitles }) {
 }
 
 const PreviewCard = ({ b, pub, titles, prefix, n, price }) => (
-  <div className="rounded-xl border border-[#272B29] bg-[#121413] p-3 pl-4 relative">
-    <span className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-[#22D3EE]" />
+  <div className="rounded-xl border border-line bg-surface p-3 pl-4 relative">
+    <span className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-info" />
     <div className="text-sm font-semibold" data-testid={`bulk-preview-title-${n}`}>{makeTitle(b, titles, prefix, n)}</div>
     {pub.filter((i) => i < b.length && !titles.includes(i)).map((i) => <div key={i} className="truncate font-mono text-[11px] text-slate-400">{b[i]}</div>)}
-    <div className="mt-1 font-mono text-sm text-[#4ADE80]">{money(price * 100)}</div>
+    <div className="mt-1 font-mono text-sm text-brandlt">{money(price * 100)}</div>
   </div>
 );
 
@@ -117,7 +117,7 @@ export function BulkImport({ open, onOpenChange, onDone }) {
 
   return (
     <Dialog open={open} onOpenChange={close}>
-      <DialogContent className="max-h-[94vh] w-[calc(100%-1.5rem)] overflow-y-auto overflow-x-hidden [&>*]:min-w-0 rounded-xl border-[#272B29] bg-[#0E100F] sm:max-w-2xl" data-testid="bulk-import-dialog">
+      <DialogContent className="max-h-[94vh] w-[calc(100%-1.5rem)] overflow-y-auto overflow-x-hidden [&>*]:min-w-0 rounded-xl border-line bg-deep sm:max-w-2xl" data-testid="bulk-import-dialog">
         <DialogHeader>
           <DialogTitle className="font-display">Bulk import</DialogTitle>
           <DialogDescription>Each item in your file becomes its own listing. Buyers only see the lines you mark Public until they buy.</DialogDescription>
@@ -130,7 +130,7 @@ export function BulkImport({ open, onOpenChange, onDone }) {
               <label className="nk-label">How are items separated?</label>
               <div className="flex flex-wrap gap-2">{SEPS.map(([v, l]) => (
                 <button type="button" key={v} data-testid={`bulk-sep-${v}`} onClick={() => setSepMode(v)}
-                  className={`rounded-lg border px-3 py-2 text-xs font-semibold ${sepMode === v ? "border-[#22C55E]/60 bg-[#22C55E]/10 text-[#4ADE80]" : "border-[#272B29] text-slate-400"}`}>{l}</button>
+                  className={`rounded-lg border px-3 py-2 text-xs font-semibold ${sepMode === v ? "border-brand/60 bg-brand/10 text-brandlt" : "border-line text-slate-400"}`}>{l}</button>
               ))}</div>
               {sepMode === "custom" && <input data-testid="bulk-sep-custom-input" className="nk-input mt-2 font-mono" placeholder="e.g. ===== or #END" value={custom} onChange={(e) => setCustom(e.target.value)} />}
             </div>
@@ -146,13 +146,13 @@ export function BulkImport({ open, onOpenChange, onDone }) {
 
         {step === 1 && (
           <div className="space-y-4">
-            <p className="text-xs text-slate-400">Choose which fields buyers can <b className="text-[#22D3EE]">see</b> before buying. Hidden fields are only revealed after purchase.</p>
+            <p className="text-xs text-slate-400">Choose which fields buyers can <b className="text-info">see</b> before buying. Hidden fields are only revealed after purchase.</p>
             <LinePicker lines={lines} pub={pub} setPub={setPub} />
             <div>
               <label className="nk-label">After purchase the buyer receives</label>
               <div className="grid grid-cols-2 gap-2">{[["all", "All fields (full item)"], ["hidden", "Only the hidden fields"]].map(([v, l]) => (
                 <button type="button" key={v} data-testid={`bulk-deliver-${v}`} onClick={() => setMeta({ ...meta, deliver: v })}
-                  className={`rounded-lg border px-3 py-2 text-xs font-semibold ${meta.deliver === v ? "border-[#A855F7]/60 bg-[#A855F7]/10 text-[#C084FC]" : "border-[#272B29] text-slate-400"}`}>{l}</button>
+                  className={`rounded-lg border px-3 py-2 text-xs font-semibold ${meta.deliver === v ? "border-[#A855F7]/60 bg-[#A855F7]/10 text-[#C084FC]" : "border-line text-slate-400"}`}>{l}</button>
               ))}</div>
             </div>
             <div className="flex gap-2">
@@ -180,7 +180,7 @@ export function BulkImport({ open, onOpenChange, onDone }) {
               <label className="nk-label">Cover image (empty = category default)</label>
               <div className="flex gap-2">{DEFAULT_IMAGES.map((u, i) => (
                 <button type="button" key={u} data-testid={`bulk-image-${i}`} onClick={() => setMeta({ ...meta, image: meta.image === u ? "" : u })}
-                  className={`h-11 w-14 overflow-hidden rounded-md border-2 ${meta.image === u ? "border-[#22C55E]" : "border-transparent opacity-60"}`}><img src={u} alt="" className="h-full w-full object-cover" /></button>
+                  className={`h-11 w-14 overflow-hidden rounded-md border-2 ${meta.image === u ? "border-brand" : "border-transparent opacity-60"}`}><img src={u} alt="" className="h-full w-full object-cover" /></button>
               ))}</div>
             </div>
             <div className="flex gap-2">
@@ -199,7 +199,7 @@ export function BulkImport({ open, onOpenChange, onDone }) {
             </div>
             <textarea data-testid="bulk-data-input" className="nk-input min-h-[200px] font-mono text-xs" value={bulk} onChange={(e) => setBulk(e.target.value)} placeholder={"item 1 lines…\n--------------------------------------------------\nitem 2 lines…"} />
             <div className="flex flex-wrap items-center gap-3 text-xs">
-              <span data-testid="bulk-detected-count" className="flex items-center gap-1 font-mono text-[#4ADE80]"><FileText size={13} />{blocks.length} items detected</span>
+              <span data-testid="bulk-detected-count" className="flex items-center gap-1 font-mono text-brandlt"><FileText size={13} />{blocks.length} items detected</span>
               {odd > 0 && <span data-testid="bulk-odd-warning" className="text-[#FFB800]">{odd} item(s) have a different line count than the sample. Check them before importing.</span>}
             </div>
             {blocks.length > 0 && (

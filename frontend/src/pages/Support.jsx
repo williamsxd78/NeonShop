@@ -22,7 +22,7 @@ function NewTicket({ onCreated, onCancel }) {
   };
   return (
     <form onSubmit={submit} className="nk-card space-y-4 p-5" data-testid="new-ticket-form">
-      <div className="flex items-center gap-2"><MessageCircle size={16} className="text-[#4ADE80]" /><h3 className="font-display">New support request</h3></div>
+      <div className="flex items-center gap-2"><MessageCircle size={16} className="text-brandlt" /><h3 className="font-display">New support request</h3></div>
       <div className="grid gap-3 sm:grid-cols-[1fr_160px]">
         <div><label className="nk-label">Subject</label><input data-testid="new-ticket-subject" required minLength={3} className="nk-input" placeholder="e.g. My deposit is not credited" value={f.subject} onChange={(e) => setF({ ...f, subject: e.target.value })} /></div>
         <div><label className="nk-label">Topic</label>

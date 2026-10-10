@@ -2,11 +2,11 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 const STATUS = {
-  approved: "text-[#4ADE80] border-[#4ADE80]/30 bg-[#4ADE80]/10",
-  paid: "text-[#4ADE80] border-[#4ADE80]/30 bg-[#4ADE80]/10",
-  delivered: "text-[#4ADE80] border-[#4ADE80]/30 bg-[#4ADE80]/10",
-  active: "text-[#4ADE80] border-[#4ADE80]/30 bg-[#4ADE80]/10",
-  available: "text-[#4ADE80] border-[#4ADE80]/30 bg-[#4ADE80]/10",
+  approved: "text-brandlt border-brandlt/30 bg-brandlt/10",
+  paid: "text-brandlt border-brandlt/30 bg-brandlt/10",
+  delivered: "text-brandlt border-brandlt/30 bg-brandlt/10",
+  active: "text-brandlt border-brandlt/30 bg-brandlt/10",
+  available: "text-brandlt border-brandlt/30 bg-brandlt/10",
   pending: "text-[#FFB800] border-[#FFB800]/30 bg-[#FFB800]/10",
   awaiting_txid: "text-[#A855F7] border-[#A855F7]/30 bg-[#A855F7]/10",
   reserved: "text-[#A855F7] border-[#A855F7]/30 bg-[#A855F7]/10",
@@ -14,7 +14,7 @@ const STATUS = {
   suspended: "text-[#FF2A5F] border-[#FF2A5F]/30 bg-[#FF2A5F]/10",
   sold: "text-slate-400 border-slate-600/40 bg-slate-700/20",
   open: "text-[#FFB800] border-[#FFB800]/30 bg-[#FFB800]/10",
-  answered: "text-[#22D3EE] border-[#22D3EE]/30 bg-[#22D3EE]/10",
+  answered: "text-info border-info/30 bg-info/10",
   closed: "text-slate-400 border-slate-600/40 bg-slate-700/20",
 };
 
@@ -34,7 +34,7 @@ export const PageHeader = ({ eyebrow, title, children }) => (
   </div>
 );
 
-export const Stat = ({ label, value, accent = "#22C55E", testId }) => (
+export const Stat = ({ label, value, accent = "rgb(var(--nk-brand))", testId }) => (
   <div className="nk-card p-5" data-testid={testId}>
     <div className="nk-label">{label}</div>
     <div className="font-mono text-xl" style={{ color: accent }}>{value}</div>
@@ -55,7 +55,7 @@ export function PromptDialog({ open, onOpenChange, title, description, label, ty
   };
   return (
     <Dialog open={open} onOpenChange={(o) => { if (o) setVal(defaultValue); onOpenChange(o); }}>
-      <DialogContent className="border-[#272B29] bg-[#121413] sm:max-w-md" data-testid={`${testId}-dialog`}>
+      <DialogContent className="border-line bg-surface sm:max-w-md" data-testid={`${testId}-dialog`}>
         <DialogHeader>
           <DialogTitle className="font-display">{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}
@@ -80,7 +80,7 @@ export function ConfirmDialog({ open, onOpenChange, title, description, confirmT
   const go = async () => { setBusy(true); try { await onConfirm(); onOpenChange(false); } finally { setBusy(false); } };
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="border-[#272B29] bg-[#121413] sm:max-w-md" data-testid={`${testId}-dialog`}>
+      <DialogContent className="border-line bg-surface sm:max-w-md" data-testid={`${testId}-dialog`}>
         <DialogHeader><DialogTitle className="font-display">{title}</DialogTitle>{description && <DialogDescription>{description}</DialogDescription>}</DialogHeader>
         <div className="flex justify-end gap-2">
           <button className="nk-btn-ghost nk-btn-sm" onClick={() => onOpenChange(false)} data-testid={`${testId}-cancel`}>Cancel</button>
@@ -95,7 +95,7 @@ export const FilterTabs = ({ value, onChange, options, testPrefix }) => (
   <div className="no-scrollbar mb-5 flex gap-2 overflow-x-auto">
     {options.map((o) => (
       <button key={o} data-testid={`${testPrefix}-${o}`} onClick={() => onChange(o)}
-        className={`whitespace-nowrap rounded-full border px-3.5 py-1.5 text-xs font-mono uppercase tracking-wider transition-colors ${value === o ? "border-[#22C55E]/60 bg-[#22C55E]/10 text-[#22C55E]" : "border-[#272B29] text-slate-400 hover:text-white"}`}>
+        className={`whitespace-nowrap rounded-full border px-3.5 py-1.5 text-xs font-mono uppercase tracking-wider transition-colors ${value === o ? "border-brand/60 bg-brand/10 text-brand" : "border-line text-slate-400 hover:text-white"}`}>
         {o.replace("_", " ")}
       </button>
     ))}

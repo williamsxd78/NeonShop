@@ -16,10 +16,10 @@ export default function Orders() {
             <tbody>{orders.map((o) => (
               <tr key={o.id} data-testid={`order-row-${o.id}`}>
                 <td className="font-mono text-xs">{fmtDate(o.created_at)}</td>
-                <td><Link to={`/product/${o.product_id}`} className="hover:text-[#22C55E]">{o.product_title}</Link></td>
+                <td><Link to={`/product/${o.product_id}`} className="hover:text-brand">{o.product_title}</Link></td>
                 <td className="text-xs">{o.vendor_name}</td>
                 <td><StatusBadge status={o.status} /></td>
-                <td className="text-right font-mono text-[#22C55E]">{money(o.price_cents)}</td>
+                <td className="text-right font-mono text-brand">{money(o.price_cents)}</td>
               </tr>
             ))}</tbody>
           </table>

@@ -17,12 +17,12 @@ export function TicketImage({ path, className = "h-20 w-20", removable, onRemove
   }, [path]);
   const id = path.split("/").pop().split(".")[0].slice(0, 8);
   return (
-    <div className={`relative shrink-0 overflow-hidden rounded-lg border border-[#272B29] bg-[#0A0B0B] ${className}`} data-testid={`ticket-attachment-${id}`}>
+    <div className={`relative shrink-0 overflow-hidden rounded-lg border border-line bg-ink ${className}`} data-testid={`ticket-attachment-${id}`}>
       {src ? <button type="button" onClick={() => setOpen(true)} className="h-full w-full"><img src={src} alt="attachment" className="h-full w-full object-cover" /></button>
         : <div className="grid h-full w-full place-items-center"><Loader2 size={14} className="animate-spin text-slate-600" /></div>}
       {removable && <button type="button" data-testid={`attachment-remove-${id}`} onClick={onRemove} className="absolute right-1 top-1 rounded-full bg-black/70 p-0.5 text-white"><X size={11} /></button>}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-3xl border-[#272B29] bg-[#0E100F] p-2" data-testid="attachment-viewer">
+        <DialogContent className="max-w-3xl border-line bg-deep p-2" data-testid="attachment-viewer">
           <DialogTitle className="sr-only">Attachment</DialogTitle>
           {src && <img src={src} alt="attachment" className="max-h-[80vh] w-full rounded-md object-contain" />}
         </DialogContent>

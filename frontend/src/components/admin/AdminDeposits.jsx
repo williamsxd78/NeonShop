@@ -30,8 +30,8 @@ export function AdminDeposits({ onChange }) {
                 <td className="font-mono text-xs">{fmtDate(d.created_at)}</td>
                 <td className="text-xs">{d.user_email}</td>
                 <td className="font-mono text-xs">{d.reference}</td>
-                <td className="text-xs">{COIN_LABEL[d.coin] || "Other"}{d.manual && <div className="font-mono text-[10px] uppercase text-[#22D3EE]" title={d.note}>manual · {d.reviewed_by}</div>}</td>
-                <td className="font-mono text-[#22C55E]">{money(d.amount_cents)}{d.credited_cents != null && d.credited_cents !== d.amount_cents && <div className="text-xs text-[#4ADE80]">credited {money(d.credited_cents)}</div>}</td>
+                <td className="text-xs">{COIN_LABEL[d.coin] || "Other"}{d.manual && <div className="font-mono text-[10px] uppercase text-info" title={d.note}>manual · {d.reviewed_by}</div>}</td>
+                <td className="font-mono text-brand">{money(d.amount_cents)}{d.credited_cents != null && d.credited_cents !== d.amount_cents && <div className="text-xs text-brandlt">credited {money(d.credited_cents)}</div>}</td>
                 <td className="max-w-[180px] truncate font-mono text-xs" title={d.txid}>{d.txid || "-"}</td>
                 <td><StatusBadge status={d.status} />{d.reason && <div className="mt-1 text-xs text-[#FF2A5F]">{d.reason}</div>}</td>
                 <td className="whitespace-nowrap text-right">

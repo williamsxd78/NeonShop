@@ -23,9 +23,9 @@ export function TagInput({ tags, onChange }) {
     setT("");
   };
   return (
-    <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-[#272B29] bg-[#0E100F] p-2">
+    <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-line bg-deep p-2">
       {tags.map((x) => (
-        <span key={x} className="flex items-center gap-1 rounded-md bg-[#22D3EE]/10 px-2 py-0.5 font-mono text-[11px] uppercase text-[#22D3EE]">
+        <span key={x} className="flex items-center gap-1 rounded-md bg-info/10 px-2 py-0.5 font-mono text-[11px] uppercase text-info">
           {x}<button type="button" data-testid={`pf-tag-remove-${x}`} onClick={() => onChange(tags.filter((y) => y !== x))}><X size={11} /></button>
         </span>
       ))}
@@ -36,8 +36,8 @@ export function TagInput({ tags, onChange }) {
   );
 }
 
-const Section = ({ icon: Icon, title, hint, children, color = "#4ADE80" }) => (
-  <div className="space-y-3 rounded-xl border border-[#272B29] bg-[#121413] p-4">
+const Section = ({ icon: Icon, title, hint, children, color = "rgb(var(--nk-brandlt))" }) => (
+  <div className="space-y-3 rounded-xl border border-line bg-surface p-4">
     <div className="flex items-center gap-2"><Icon size={15} style={{ color }} /><span className="font-display text-sm font-semibold">{title}</span>
       {hint && <span className="ml-auto text-[11px] text-slate-500">{hint}</span>}</div>
     {children}
@@ -77,10 +77,10 @@ export function ProductForm({ open, onOpenChange, product, onSaved }) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92vh] overflow-y-auto border-[#272B29] bg-[#0E100F] sm:max-w-2xl" data-testid="product-form-dialog">
+      <DialogContent className="max-h-[92vh] overflow-y-auto border-line bg-deep sm:max-w-2xl" data-testid="product-form-dialog">
         <DialogHeader><DialogTitle className="font-display">{product ? "Edit product" : "New product"}</DialogTitle></DialogHeader>
         <form onSubmit={save} className="space-y-4">
-          <Section icon={Eye} title="What buyers see" hint="Public on the marketplace" color="#22D3EE">
+          <Section icon={Eye} title="What buyers see" hint="Public on the marketplace" color="rgb(var(--nk-info))">
             <div><label className="nk-label">Title</label><input data-testid="pf-title-input" className="nk-input" required value={f.title} onChange={set("title")} /></div>
             <div className="grid grid-cols-2 gap-3">
               <div><label className="nk-label">Category</label>
@@ -94,9 +94,9 @@ export function ProductForm({ open, onOpenChange, product, onSaved }) {
               <div className="flex flex-wrap items-center gap-2">
                 {DEFAULT_IMAGES.map((u, i) => (
                   <button type="button" key={u} data-testid={`pf-default-image-${i}`} onClick={() => setF({ ...f, image: u })}
-                    className={`relative h-12 w-16 overflow-hidden rounded-md border-2 ${f.image === u ? "border-[#22C55E]" : "border-transparent opacity-70 hover:opacity-100"}`}>
+                    className={`relative h-12 w-16 overflow-hidden rounded-md border-2 ${f.image === u ? "border-brand" : "border-transparent opacity-70 hover:opacity-100"}`}>
                     <img src={u} alt="" className="h-full w-full object-cover" />
-                    {f.image === u && <Check size={14} className="absolute right-0.5 top-0.5 rounded-full bg-[#22C55E] text-black" />}
+                    {f.image === u && <Check size={14} className="absolute right-0.5 top-0.5 rounded-full bg-brand text-black" />}
                   </button>
                 ))}
                 <label className="nk-btn-ghost nk-btn-sm cursor-pointer"><Upload size={14} />Upload<input data-testid="pf-image-input" type="file" accept="image/*" className="hidden" onChange={upload} /></label>
@@ -112,7 +112,7 @@ export function ProductForm({ open, onOpenChange, product, onSaved }) {
             <div className="grid grid-cols-2 gap-2">
               {[["keys", "Unique key per buyer", KeyRound, "From your key stock"], ["content", "Same content for all", FileText, "Unlimited stock"]].map(([v, l, I, s]) => (
                 <button type="button" key={v} data-testid={`pf-delivery-${v}`} onClick={() => setF({ ...f, delivery_type: v })}
-                  className={`rounded-lg border p-3 text-left transition-colors ${f.delivery_type === v ? "border-[#22C55E]/60 bg-[#22C55E]/10" : "border-[#272B29]"}`}>
+                  className={`rounded-lg border p-3 text-left transition-colors ${f.delivery_type === v ? "border-brand/60 bg-brand/10" : "border-line"}`}>
                   <div className="flex items-center gap-2 text-sm font-semibold"><I size={15} />{l}</div><div className="text-[11px] text-slate-500">{s}</div>
                 </button>
               ))}

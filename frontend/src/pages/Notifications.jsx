@@ -17,7 +17,7 @@ export default function Notifications() {
         <div className="space-y-3" data-testid="notifications-list">
           {items.map((n, i) => (
             <div key={n.id} className="nk-card nk-rise flex gap-4 p-4" style={{ animationDelay: `${i * 30}ms` }} data-testid={`notification-${n.id}`}>
-              <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-full ${n.read ? "bg-[#272B29] text-slate-500" : "bg-[#22C55E]/10 text-[#22C55E]"}`}><Bell size={16} /></span>
+              <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-full ${n.read ? "bg-line text-slate-500" : "bg-brand/10 text-brand"}`}><Bell size={16} /></span>
               <div className="min-w-0">
                 <div className="font-semibold">{n.title}</div>
                 <p className="text-sm text-slate-400">{n.body}</p>

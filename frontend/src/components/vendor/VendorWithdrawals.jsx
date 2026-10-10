@@ -19,7 +19,7 @@ export function VendorWithdrawals({ earnings, onChanged }) {
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_1.4fr]">
       <form onSubmit={submit} className="nk-card space-y-4 p-6" data-testid="withdraw-form">
-        <div><div className="nk-label">Withdrawable earnings</div><div className="font-mono text-2xl text-[#4ADE80]">{money(earnings)}</div></div>
+        <div><div className="nk-label">Withdrawable earnings</div><div className="font-mono text-2xl text-brandlt">{money(earnings)}</div></div>
         <div><label className="nk-label">Amount (USD)</label><input data-testid="withdraw-amount-input" className="nk-input font-mono" type="number" min="1" step="0.01" required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></div>
         <div><label className="nk-label">Payout coin</label>
           <select data-testid="withdraw-coin-select" className="nk-input" value={f.coin} onChange={(e) => setF({ ...f, coin: e.target.value })}>

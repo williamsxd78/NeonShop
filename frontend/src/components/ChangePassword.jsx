@@ -24,7 +24,7 @@ export function ChangePasswordDialog({ open, onOpenChange }) {
   );
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="border-[#272B29] bg-[#0E100F] sm:max-w-md" data-testid="change-password-dialog">
+      <DialogContent className="border-line bg-deep sm:max-w-md" data-testid="change-password-dialog">
         <DialogHeader><DialogTitle className="font-display">Change password</DialogTitle></DialogHeader>
         <form onSubmit={submit} className="space-y-3">
           {field("current", "Current password", "cp-current-input", { autoComplete: "current-password" })}

@@ -17,7 +17,7 @@ from datetime import datetime, timezone, timedelta
 from core import (db, client, logger, CATEGORIES, COINS, APP_NAME, now_iso, new_id, to_cents,
                   hash_password, verify_password, create_access_token, public_user, get_current_user,
                   require_role, require_approved_vendor, audit, notify, get_settings,
-                  init_storage, put_object, get_object)
+                  init_storage, put_object, get_object, BUILTIN_SECTIONS)
 from seed import seed_all, IMG as DEFAULT_IMAGES
 
 app = FastAPI()
@@ -212,7 +212,81 @@ class BannerIn(BaseModel):
     image: str = Field(min_length=1, max_length=600, pattern=SAFE_LINK)
 
 
+HEX = r"^#[0-9A-Fa-f]{6}$"
+
+
+class ThemeIn(BaseModel):
+    brand: str = Field(pattern=HEX)
+    brandlt: str = Field(pattern=HEX)
+    info: str = Field(pattern=HEX)
+    ink: str = Field(pattern=HEX)
+    panel: str = Field(pattern=HEX)
+    surface: str = Field(pattern=HEX)
+    deep: str = Field(pattern=HEX)
+    line: str = Field(pattern=HEX)
+
+
+class BrandIn(BaseModel):
+    name_start: str = Field(default="", max_length=30)
+    name_end: str = Field(default="", max_length=30)
+    icon: str = Field(default="zap", max_length=30)
+    page_title: str = Field(min_length=1, max_length=70)
+    official_store: str = Field(min_length=1, max_length=60)
+
+
+class LinkIn(BaseModel):
+    label: str = Field(min_length=1, max_length=40)
+    url: str = Field(min_length=1, max_length=500, pattern=SAFE_LINK)
+
+
+class FooterColIn(BaseModel):
+    title: str = Field(default="", max_length=40)
+    links: List[LinkIn] = Field(default_factory=list, max_length=10)
+
+
+class FooterIn(BaseModel):
+    text: str = Field(default="", max_length=200)
+    columns: List[FooterColIn] = Field(default_factory=list, max_length=6)
+
+
+class FeatureColIn(BaseModel):
+    icon: str = Field(default="zap", max_length=30)
+    title: str = Field(default="", max_length=60)
+    text: str = Field(default="", max_length=300)
+
+
+class SectionIn(BaseModel):
+    id: Optional[str] = None
+    type: Literal["hero", "banners", "notice", "vendors", "products", "text", "columns"]
+    enabled: bool = True
+    title: str = Field(default="", max_length=80)
+    body: str = Field(default="", max_length=1500)
+    image: str = Field(default="", max_length=600, pattern=SAFE_LINK)
+    button_text: str = Field(default="", max_length=30)
+    link: str = Field(default="", max_length=500, pattern=SAFE_LINK)
+    columns: List[FeatureColIn] = Field(default_factory=list, max_length=6)
+
+
+def clean_sections(items: List[SectionIn]) -> List[dict]:
+    out, seen = [], set()
+    for x in items:
+        if x.type in BUILTIN_SECTIONS:
+            if x.type in seen:
+                continue
+            seen.add(x.type)
+            out.append({"id": x.type, "type": x.type, "enabled": x.enabled})
+        else:
+            out.append({**x.model_dump(), "id": x.id if x.id and x.id not in seen and x.id not in BUILTIN_SECTIONS else new_id()})
+            seen.add(out[-1]["id"])
+    out += [{"id": t, "type": t, "enabled": False} for t in BUILTIN_SECTIONS if t not in seen]
+    return out
+
+
 class SiteIn(BaseModel):
+    theme: Optional[ThemeIn] = None
+    brand: Optional[BrandIn] = None
+    footer: Optional[FooterIn] = None
+    sections: Optional[List[SectionIn]] = Field(default=None, max_length=30)
     notice: Optional[NoticeIn] = None
     categories: Optional[List[CategoryIn]] = Field(default=None, min_length=1, max_length=30)
     hero: Optional[HeroIn] = None
@@ -346,13 +420,15 @@ async def site():
     return {"categories": s["categories"], "category_style": s["category_style"],
             "notice": {**s["notice"], "active": notice_active(s["notice"])}, "hero": s["hero"],
             "banners": [b for b in s["banners"] if b.get("enabled")],
+            "theme": s["theme"], "brand": s["brand"], "footer": s["footer"],
+            "sections": [x for x in s["sections"] if x.get("enabled")],
             "product_count": await db.products.count_documents({"status": "approved", **IN_STOCK})}
 
 
 @api.get("/admin/site")
 async def admin_get_site(user=Depends(admin_dep)):
     s = await get_settings()
-    return {k: s[k] for k in ("categories", "category_style", "notice", "hero", "banners")} | {"notice_active": notice_active(s["notice"])}
+    return {k: s[k] for k in ("categories", "category_style", "notice", "hero", "banners", "theme", "brand", "footer", "sections")} | {"notice_active": notice_active(s["notice"])}
 
 
 def parse_attrs(lines: List[str]) -> List[dict]:
@@ -600,8 +676,10 @@ async def vendor_products(user=Depends(require_role("vendor", "admin"))):
     return await db.products.find({"vendor_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(5000)
 
 
-def store_name(user: dict) -> str:
-    return user.get("store_name") or ("NeonKeys Official" if user["role"] == "admin" else user["name"])
+async def store_name(user: dict) -> str:
+    if user["role"] == "admin":
+        return (await get_settings())["brand"]["official_store"]
+    return user.get("store_name") or user["name"]
 
 
 def listing_status(user: dict) -> dict:
@@ -611,7 +689,7 @@ def listing_status(user: dict) -> dict:
 @api.post("/vendor/products")
 async def vendor_create_product(body: ProductIn, user=Depends(require_approved_vendor)):
     await check_category(body.category)
-    p = {"id": new_id(), "vendor_id": user["id"], "vendor_name": store_name(user),
+    p = {"id": new_id(), "vendor_id": user["id"], "vendor_name": await store_name(user),
          **product_fields(body), **listing_status(user), "stock_count": 0, "sales_count": 0, "created_at": now_iso()}
     await db.products.insert_one(p)
     p.pop("_id", None)
@@ -668,7 +746,7 @@ async def vendor_bulk_import(body: BulkIn, user=Depends(require_approved_vendor)
     async for k in db.license_keys.find({"vendor_id": user["id"], "key": {"$in": [x[1] for x in items]}}, {"key": 1}):
         existing.add(k["key"])
     batch_id, now, cents = new_id(), now_iso(), to_cents(body.price)
-    vname = store_name(user)
+    vname = await store_name(user)
     products, keys, skipped = [], [], 0
     for n, (b, secret) in enumerate(items, 1):
         if secret in seen or secret in existing:
@@ -1060,6 +1138,13 @@ async def admin_update_site(body: SiteIn, user=Depends(admin_dep)):
         upd["categories"] = names
         upd["category_style"] = {c.name.strip(): {"icon": c.icon, "color": c.color} for c in body.categories}
         await audit(user, "settings.categories", None, details=", ".join(names))
+    for k in ("theme", "brand", "footer"):
+        if getattr(body, k) is not None:
+            upd[k] = getattr(body, k).model_dump()
+            await audit(user, f"settings.{k}", None, details=f"{k} updated")
+    if body.sections is not None:
+        upd["sections"] = clean_sections(body.sections)
+        await audit(user, "settings.sections", None, details=", ".join(x["type"] for x in upd["sections"] if x["enabled"]))
     if body.hero is not None:
         upd["hero"] = body.hero.model_dump()
         await audit(user, "settings.hero", None, details=f"enabled={body.hero.enabled}, title={body.hero.title}")

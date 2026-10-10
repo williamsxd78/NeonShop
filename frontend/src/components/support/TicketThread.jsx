@@ -31,7 +31,7 @@ export function TicketThread({ id, admin = false, onChange }) {
 
   return (
     <div className="nk-card flex flex-col" data-testid={`ticket-thread-${id}`}>
-      <div className="flex flex-wrap items-start gap-3 border-b border-[#272B29] p-4">
+      <div className="flex flex-wrap items-start gap-3 border-b border-line p-4">
         <div className="min-w-0 flex-1">
           <div className="font-mono text-[10px] uppercase tracking-wider text-slate-500">{t.ref} · {t.topic}{t.order_id ? ` · order ${t.order_id.slice(0, 8)}` : ""}</div>
           <h3 className="truncate font-display text-base" data-testid="ticket-subject">{t.subject}</h3>
@@ -47,9 +47,9 @@ export function TicketThread({ id, admin = false, onChange }) {
           const mine = admin ? m.from_admin : !m.from_admin;
           return (
             <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`} data-testid={`ticket-msg-${m.id}`}>
-              <div className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm ${mine ? "rounded-br-sm bg-[#22C55E]/15 text-slate-100" : "rounded-bl-sm border border-[#272B29] bg-[#0E100F] text-slate-200"}`}>
+              <div className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm ${mine ? "rounded-br-sm bg-brand/15 text-slate-100" : "rounded-bl-sm border border-line bg-deep text-slate-200"}`}>
                 <div className="mb-1 flex items-center gap-1.5 text-[10px] text-slate-500">
-                  {m.from_admin && <ShieldCheck size={11} className="text-[#4ADE80]" />}{m.from_admin ? "Support team" : m.author_name} · {fmtDate(m.created_at)}
+                  {m.from_admin && <ShieldCheck size={11} className="text-brandlt" />}{m.from_admin ? "Support team" : m.author_name} · {fmtDate(m.created_at)}
                 </div>
                 {m.message && <p className="whitespace-pre-wrap break-words">{m.message}</p>}
                 {m.attachments?.length > 0 && <div className="mt-2 flex flex-wrap gap-2">{m.attachments.map((p) => <TicketImage key={p} path={p} />)}</div>}
@@ -60,9 +60,9 @@ export function TicketThread({ id, admin = false, onChange }) {
         <div ref={end} />
       </div>
       {closed && !admin ? (
-        <div className="flex items-center gap-2 border-t border-[#272B29] p-4 text-xs text-slate-500" data-testid="ticket-closed-note"><Lock size={13} />This ticket is closed. Open a new ticket if you need more help.</div>
+        <div className="flex items-center gap-2 border-t border-line p-4 text-xs text-slate-500" data-testid="ticket-closed-note"><Lock size={13} />This ticket is closed. Open a new ticket if you need more help.</div>
       ) : (
-        <form onSubmit={send} className="space-y-2 border-t border-[#272B29] p-3">
+        <form onSubmit={send} className="space-y-2 border-t border-line p-3">
           <AttachPreview att={att} />
           <div className="flex items-end gap-2">
           {admin && <QuickReplies ticket={t} onPick={(text) => setMsg((m) => (m.trim() ? `${m}\n\n${text}` : text))} />}
@@ -86,9 +86,9 @@ export function TicketList({ items, active, onPick, admin = false }) {
         const unread = admin ? t.unread_admin : t.unread_user;
         return (
           <button key={t.id} data-testid={`ticket-row-${t.id}`} onClick={() => onPick(t.id)}
-            className={`nk-card w-full p-3.5 text-left transition-colors ${active === t.id ? "border-[#22C55E]/50 bg-[#22C55E]/[0.06]" : "hover:border-[#22C55E]/30"}`}>
+            className={`nk-card w-full p-3.5 text-left transition-colors ${active === t.id ? "border-brand/50 bg-brand/[0.06]" : "hover:border-brand/30"}`}>
             <div className="flex items-center gap-2">
-              {unread && <span className="h-2 w-2 shrink-0 rounded-full bg-[#22C55E]" data-testid={`ticket-unread-${t.id}`} />}
+              {unread && <span className="h-2 w-2 shrink-0 rounded-full bg-brand" data-testid={`ticket-unread-${t.id}`} />}
               <span className="min-w-0 flex-1 truncate text-sm text-slate-100">{t.subject}</span>
               <StatusBadge status={t.status} />
             </div>

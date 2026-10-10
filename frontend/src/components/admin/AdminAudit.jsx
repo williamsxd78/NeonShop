@@ -20,7 +20,7 @@ export function AdminAudit() {
               <td className="text-xs">{a.actor_email}</td>
               <td className="font-mono text-xs text-[#A855F7]">{a.action}</td>
               <td className="max-w-md text-xs">{a.details}</td>
-              <td className={`text-right font-mono text-xs ${a.amount_cents == null ? "text-slate-600" : a.amount_cents >= 0 ? "text-[#4ADE80]" : "text-[#FF2A5F]"}`}>{a.amount_cents == null ? "-" : money(a.amount_cents)}</td>
+              <td className={`text-right font-mono text-xs ${a.amount_cents == null ? "text-slate-600" : a.amount_cents >= 0 ? "text-brandlt" : "text-[#FF2A5F]"}`}>{a.amount_cents == null ? "-" : money(a.amount_cents)}</td>
             </tr>
           ))}</tbody>
         </table>
@@ -44,7 +44,7 @@ export function AdminOverview({ stats, go }) {
       </div>
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat testId="astat-volume" label="Sales volume" value={money(stats.volume_cents)} />
-        <Stat testId="astat-commission" label="Platform revenue" value={money(stats.commission_cents)} accent="#4ADE80" />
+        <Stat testId="astat-commission" label="Platform revenue" value={money(stats.commission_cents)} accent="rgb(var(--nk-brandlt))" />
         <Stat testId="astat-deposits" label="Deposits credited" value={money(stats.deposits_cents)} accent="#A855F7" />
         <Stat testId="astat-orders" label="Orders" value={stats.orders} />
         <Stat label="Buyers" value={stats.users} />
@@ -57,7 +57,7 @@ export function AdminOverview({ stats, go }) {
           <thead><tr><th>Time</th><th>Product</th><th>Buyer</th><th>Vendor</th><th>Price</th><th className="text-right">Commission</th></tr></thead>
           <tbody>{stats.recent_orders.map((o) => (
             <tr key={o.id}><td className="font-mono text-xs">{fmtDate(o.created_at)}</td><td>{o.product_title}</td><td className="text-xs">{o.buyer_email}</td>
-              <td className="text-xs">{o.vendor_name}</td><td className="font-mono">{money(o.price_cents)}</td><td className="text-right font-mono text-[#4ADE80]">{money(o.commission_cents)}</td></tr>
+              <td className="text-xs">{o.vendor_name}</td><td className="font-mono">{money(o.price_cents)}</td><td className="text-right font-mono text-brandlt">{money(o.commission_cents)}</td></tr>
           ))}</tbody>
         </table>
       </div>
