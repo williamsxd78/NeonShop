@@ -106,6 +106,24 @@ function CategoryEditor({ initial }) {
   );
 }
 
+function GuestLockEditor({ initial }) {
+  const [on, setOn] = useState(!!initial);
+  const toggle = async (v) => {
+    setOn(v);
+    try { await api.put("/admin/site", { guest_lock: v }); await reloadSite(); toast.success(v ? "Guests must now log in to interact" : "Guests can browse freely"); }
+    catch (e) { setOn(!v); toast.error(errMsg(e)); }
+  };
+  return (
+    <div className="nk-card flex items-start justify-between gap-4 p-5 xl:col-span-2" data-testid="guest-lock-editor">
+      <div>
+        <h3 className="font-display text-base">Login required to interact</h3>
+        <p className="text-xs text-slate-500">When on, logged-out visitors only see the homepage. Any click (products, categories, vendors, search, menu, support) opens a login / sign-up popup, and after signing in they continue to what they clicked.</p>
+      </div>
+      <Switch data-testid="guest-lock-switch" checked={on} onCheckedChange={toggle} />
+    </div>
+  );
+}
+
 export function AdminSite() {
   const [s, setS] = useState(null);
   const [count, setCount] = useState(0);
@@ -116,6 +134,7 @@ export function AdminSite() {
   if (!s) return <div className="nk-card h-40 animate-pulse" />;
   return (
     <div className="grid gap-6 xl:grid-cols-2">
+      <GuestLockEditor initial={s.guest_lock} />
       <HeroEditor initial={s.hero} count={count} />
       <BannersEditor initial={s.banners} />
       <NoticeEditor initial={s.notice} />

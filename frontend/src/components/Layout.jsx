@@ -3,6 +3,7 @@ import { Store, KeyRound, Wallet, ShoppingBag, LayoutGrid, Bell, Shield, Boxes, 
 import { useAuth } from "@/context/AuthContext";
 import { money } from "@/lib/api";
 import { ChatButton } from "@/components/ChatButton";
+import { GuestGate } from "@/components/GuestGate";
 import { BrandName, BrandMark } from "@/components/Brand";
 import { useSite } from "@/lib/site";
 
@@ -43,8 +44,8 @@ function TopNav() {
             </>
           ) : (
             <>
-              <Link to="/login" data-testid="header-login" className="nk-btn-ghost nk-btn-sm">Log in</Link>
-              <Link to="/register" data-testid="header-register" className="nk-btn-primary nk-btn-sm">Sign up</Link>
+              <Link to="/login" data-guest-allow data-testid="header-login" className="nk-btn-ghost nk-btn-sm">Log in</Link>
+              <Link to="/register" data-guest-allow data-testid="header-register" className="nk-btn-primary nk-btn-sm">Sign up</Link>
             </>
           )}
         </div>
@@ -103,6 +104,7 @@ export default function Layout() {
       </main>
       <SiteFooter />
       <ChatButton />
+      <GuestGate />
       <BottomNav />
     </div>
   );

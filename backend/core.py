@@ -177,6 +177,7 @@ async def get_settings() -> dict:
     s["fonts"] = {**DEFAULT_FONTS, **(s.get("fonts") or {})}
     s.setdefault("footer", DEFAULT_FOOTER)
     s.setdefault("sections", DEFAULT_SECTIONS)
+    s.setdefault("guest_lock", False)
     av = s.get("auto_verify") or {}
     s["auto_verify"] = {c: {"enabled": True, "confirmations": n, **(av.get(c) or {})} for c, n in DEFAULT_AUTO_VERIFY.items()}
     style = s.get("category_style") or {}

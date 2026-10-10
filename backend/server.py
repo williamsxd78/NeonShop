@@ -310,6 +310,7 @@ class SiteIn(BaseModel):
     categories: Optional[List[CategoryIn]] = Field(default=None, min_length=1, max_length=30)
     hero: Optional[HeroIn] = None
     banners: Optional[List[BannerIn]] = Field(default=None, max_length=12)
+    guest_lock: Optional[bool] = None
 
 
 def notice_active(n: dict) -> bool:
@@ -440,14 +441,14 @@ async def site():
             "notice": {**s["notice"], "active": notice_active(s["notice"])}, "hero": s["hero"],
             "banners": [b for b in s["banners"] if b.get("enabled")],
             "theme": s["theme"], "fonts": s["fonts"], "brand": s["brand"], "footer": s["footer"],
-            "sections": [x for x in s["sections"] if x.get("enabled")],
+            "sections": [x for x in s["sections"] if x.get("enabled")], "guest_lock": s["guest_lock"],
             "product_count": await db.products.count_documents({"status": "approved", **IN_STOCK})}
 
 
 @api.get("/admin/site")
 async def admin_get_site(user=Depends(admin_dep)):
     s = await get_settings()
-    return {k: s[k] for k in ("categories", "category_style", "notice", "hero", "banners", "theme", "fonts", "brand", "footer", "sections")} | {"font_choices": FONT_CHOICES} | {"notice_active": notice_active(s["notice"])}
+    return {k: s[k] for k in ("categories", "category_style", "notice", "hero", "banners", "theme", "fonts", "brand", "footer", "sections", "guest_lock")} | {"font_choices": FONT_CHOICES} | {"notice_active": notice_active(s["notice"])}
 
 
 def parse_attrs(lines: List[str]) -> List[dict]:
@@ -1193,6 +1194,9 @@ async def admin_update_site(body: SiteIn, user=Depends(admin_dep)):
     if body.hero is not None:
         upd["hero"] = body.hero.model_dump()
         await audit(user, "settings.hero", None, details=f"enabled={body.hero.enabled}, title={body.hero.title}")
+    if body.guest_lock is not None:
+        upd["guest_lock"] = body.guest_lock
+        await audit(user, "settings.guest_lock", None, details=f"enabled={body.guest_lock}")
     if body.banners is not None:
         seen = set()
         upd["banners"] = []
